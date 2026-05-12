@@ -11,6 +11,8 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <!-- Librería para escanear QR desde webcam -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+  <!-- SheetJS para importar Excel -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <!-- Header con autenticación -->
@@ -102,8 +104,11 @@
           <span id="detail-status" class="status-badge">estado</span>
         </div>
         <div class="detail-grid">
-          <div class="field"><label>Titular</label><p id="detail-holder">-</p></div>
+          <div class="field"><label>Matrícula</label><p id="detail-matricula">-</p></div>
           <div class="field"><label>Serie</label><p id="detail-series">-</p></div>
+          <div class="field"><label>Nombre</label><p id="detail-nombre">-</p></div>
+          <div class="field"><label>Primer Apellido</label><p id="detail-apellido1">-</p></div>
+          <div class="field"><label>Segundo Apellido</label><p id="detail-apellido2">-</p></div>
           <div class="field"><label>Ubicación</label>
             <p id="detail-location">-</p>
             <button class="btn-xs" onclick="VaultMap.show('BOD-01')">🗺️ Mapa</button>
