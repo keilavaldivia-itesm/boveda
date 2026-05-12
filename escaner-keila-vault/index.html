@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escáner Keila + Bóveda Universitaria</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/vault.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <!-- Librería para generar QR -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <!-- Librería para escanear QR desde webcam -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+</head>
+<body>
+  <!-- Header con autenticación -->
+  <header class="app-header">
+    <div class="header-left">
+      <h1>🗄️ Escáner Keila <span class="badge-vault">Bóveda</span></h1>
+    </div>
+    <div class="header-right">
+      <div id="auth-section">
+        <button id="btn-login" class="btn-outline" onclick="UI.showModal('login-modal')">🔐 Ingresar</button>
+        <div id="user-badge" class="user-badge hidden">
+          <span id="user-name">Usuario</span>
+          <span id="user-role" class="role-badge">Rol</span>
+          <button class="btn-sm" onclick="Auth.logout()">🚪</button>
+        </div>
+      </div>
+      <button id="btn-vault-toggle" class="btn-primary hidden" onclick="Vault.togglePanel()">
+        🗂️ Expedientes
+      </button>
+    </div>
+  </header>
+
+  <!-- Modal de Login -->
+  <div id="login-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🔐 Acceso Bóveda Universitaria</h3>
+        <button class="close-btn" onclick="UI.closeModal('login-modal')">&times;</button>
+      </div>
+      <form id="login-form" onsubmit="Auth.handleLogin(event)">
+        <div class="form-group">
+          <label>Correo Institucional</label>
+          <input type="email" id="login-email" placeholder="usuario@universidad.edu.mx" required>
+        </div>
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input type="password" id="login-password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn-primary btn-block">Ingresar</button>
+        <p class="sso-link">
+          <a href="#" onclick="Auth.ssoLogin(event)">🔗 Acceder con cuenta institucional</a>
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Contenedor principal -->
+  <main class="app-container">
+    
+    <!-- Panel de bóveda (lateral) -->
+    <aside id="vault-panel" class="vault-panel hidden">
+      <div class="panel-header">
+        <h3>🗂️ Expedientes</h3>
+        <div class="panel-actions">
+          <button class="btn-sm" onclick="Vault.newRecord()">+ Nuevo</button>
+          <button class="btn-sm" onclick="Vault.importCSV()">📥 Importar</button>
+        </div>
+      </div>
+      
+      <!-- Filtros -->
+      <div class="filters-section">
+        <select id="filter-series" onchange="Vault.filterBySeries()">
+          <option value="">Todas las series</option>
+          <option value="academico">📚 Académicos</option>
+          <option value="administrativo">⚙️ Administrativos</option>
+          <option value="investigacion">🔬 Investigación</option>
+        </select>
+        <input type="text" id="search-expediente" placeholder="Buscar..." onkeyup="Vault.search(this.value)">
+        <select id="filter-status" onchange="Vault.filterByStatus()">
+          <option value="">Todos</option>
+          <option value="activo">🟢 En bóveda</option>
+          <option value="prestado">🟡 Prestado</option>
+          <option value="transferido">🔵 Transferido</option>
+        </select>
+      </div>
+
+      <!-- Lista de expedientes -->
+      <div id="records-list" class="records-list">
+        <div class="empty-state">
+          <p>📋 No hay expedientes registrados</p>
+          <button class="btn-outline" onclick="Vault.newRecord()">Registrar primero</button>
+        </div>
+      </div>
+
+      <!-- Detalle de expediente (modal interno) -->
+      <div id="record-detail" class="record-detail hidden">
+        <div class="detail-header">
+          <h4 id="detail-number">EXP-XXXX-XXXX</h4>
+          <span id="detail-status" class="status-badge">estado</span>
+        </div>
+        <div class="detail-grid">
+          <div class="field"><label>Titular</label><p id="detail-holder">-</p></div>
+          <div class="field"><label>Serie</label><p id="detail-series">-</p></div>
+          <div class="field"><label>Ubicación</label>
+            <p id="detail-location">-</p>
+            <button class="btn-xs" onclick="VaultMap.show('BOD-01')">🗺️ Mapa</button>
+          </div>
+          <div class="field"><label>Archivado</label><p id="detail-date">-</p></div>
+        </div>
+        <div class="detail-actions">
+          <button id="btn-loan" class="btn-primary" onclick="Loan.initiate()">📤 Préstamo</button>
+          <button id="btn-move" class="btn-secondary" onclick="Vault.moveRecord()">🔄 Mover</button>
+          <button class="btn-outline" onclick="QRGenerator.printLabel()">🔲 Imprimir QR</button>
+          <button class="btn-text" onclick="Vault.showHistory()">📜 Historial</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Área principal del scanner (tu app original) -->
+    <section class="scanner-section" id="scanner-area">
+      
+      <!-- Vista de cámara -->
+      <div class="camera-container">
+        <div id="reader" class="qr-reader"></div>
+        <div id="camera-placeholder" class="camera-placeholder">
+          <p>📷 Presiona el botón para activar la cámara</p>
+          <button id="btn-start-scan" class="btn-primary" onclick="Scanner.start()">
+            📷 Iniciar escáner
+          </button>
+        </div>
+        <div id="scan-feedback" class="scan-feedback hidden">
+          <span id="feedback-icon">✅</span>
+          <span id="feedback-message">Listo para escanear</span>
+        </div>
+      </div>
+
+      <!-- Controles del scanner -->
+      <div class="scanner-controls">
+        <div class="control-group">
+          <label>📍 Geolocalización</label>
+          <select id="geo-option" onchange="Scanner.toggleGeo(this.value)">
+            <option value="off">Desactivada</option>
+            <option value="on">Activar</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>🏷️ Etiqueta del escaneo</label>
+          <input type="text" id="scan-label" placeholder="Ej: Inventario Bóveda">
+          <select id="label-preset" onchange="document.getElementById('scan-label').value=this.value">
+            <option value="">Predefinidas...</option>
+            <option value="entrada">📥 Entrada</option>
+            <option value="salida">📤 Salida</option>
+            <option value="inventario">📋 Inventario</option>
+          </select>
+        </div>
+        <button id="btn-send" class="btn-primary" onclick="Scanner.sendData()">
+          ✅ Enviar datos
+        </button>
+      </div>
+
+      <!-- Resultados de escaneos -->
+      <div class="scan-results">
+        <div class="results-header">
+          <h4>📊 Últimos registros <span id="scan-count">(0)</span></h4>
+          <div class="results-actions">
+            <button class="btn-sm" onclick="Scanner.exportCSV()">⬇ CSV</button>
+            <button class="btn-sm btn-danger" onclick="Scanner.clearScans()">🗑️ Limpiar</button>
+          </div>
+        </div>
+        <div id="scans-list" class="scans-list">
+          <p class="empty">Los escaneos aparecerán aquí</p>
+        </div>
+      </div>
+
+      <!-- Configuración de columnas (tu funcionalidad original) -->
+      <div class="columns-config">
+        <details>
+          <summary>⚙️ Columnas de datos</summary>
+          <div class="columns-grid">
+            <label><input type="checkbox" data-col="text" checked> Texto</label>
+            <label><input type="checkbox" data-col="number"> Número</label>
+            <label><input type="checkbox" data-col="datetime"> Fecha/Hora</label>
+            <label><input type="checkbox" data-col="geo"> Geoloc.</label>
+            <label><input type="checkbox" data-col="label" checked> Etiqueta</label>
+          </div>
+          <button class="btn-sm" onclick="Scanner.addColumn()">+ Agregar columna</button>
+        </details>
+      </div>
+
+      <!-- Configuración de etiquetas predefinidas -->
+      <div class="labels-config">
+        <details>
+          <summary>🏷️ Etiquetas predefinidas</summary>
+          <div id="preset-labels" class="preset-list">
+            <span class="preset-tag">entrada <button onclick="Scanner.removePreset('entrada')">×</button></span>
+            <span class="preset-tag">salida <button onclick="Scanner.removePreset('salida')">×</button></span>
+          </div>
+          <div class="add-preset">
+            <input type="text" id="new-preset" placeholder="Nueva etiqueta...">
+            <button class="btn-sm" onclick="Scanner.addPreset()">+ Agregar</button>
+          </div>
+        </details>
+      </div>
+
+      <!-- Opciones de escaneo -->
+      <div class="scan-options">
+        <details>
+          <summary>⚡ Opciones de escaneo</summary>
+          <label class="toggle">
+            <input type="checkbox" id="opt-continuous" checked>
+            <span>Escaneo continuo (no pausar entre escaneos)</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="opt-sound" checked>
+            <span>🔊 Sonido al escanear (bip de confirmación)</span>
+          </label>
+        </details>
+      </div>
+
+      <!-- Configuración de API SheetDB -->
+      <div class="api-config">
+        <details>
+          <summary>🔗 API SheetDB</summary>
+          <div class="form-row">
+            <input type="url" id="sheetdb-url" placeholder="https://sheetdb.io/api/v1/xxxxx">
+            <button class="btn-sm" onclick="Scanner.saveAPIConfig()">Guardar URL</button>
+          </div>
+          <small>Los datos se enviarán a esta hoja de Google Sheets</small>
+        </details>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Modal de Mapa de Bóveda -->
+  <div id="vault-map-modal" class="modal hidden">
+    <div class="modal-content large">
+      <div class="modal-header">
+        <h3>🗺️ Mapa de Bóveda: <span id="map-title">BOD-01</span></h3>
+        <button class="close-btn" onclick="UI.closeModal('vault-map-modal')">&times;</button>
+      </div>
+      <div class="map-container">
+        <div class="location-breadcrumb" id="map-breadcrumb">
+          <button onclick="VaultMap.navigate('BOD-01')">🏢 Bóveda 01</button>
+        </div>
+        <div id="shelf-visual" class="shelf-visual">
+          <!-- Se genera dinámicamente -->
+        </div>
+        <div id="box-detail" class="box-detail hidden">
+          <h4>📦 <span id="box-id">CAJ-XXX</span></h4>
+          <p>Ocupación: <span id="box-occupancy">0/20</span></p>
+          <div class="progress"><div id="box-progress" class="progress-fill" style="width:0%"></div></div>
+          <button class="btn-sm" onclick="VaultMap.confirmSelection()">✅ Seleccionar esta ubicación</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Préstamo -->
+  <div id="loan-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📤 Préstamo de Expediente</h3>
+        <button class="close-btn" onclick="UI.closeModal('loan-modal')">&times;</button>
+      </div>
+      <form id="loan-form" onsubmit="Loan.submit(event)">
+        <input type="hidden" id="loan-record-id">
+        <div class="form-group">
+          <label>Expediente</label>
+          <p id="loan-record-num" class="form-static">-</p>
+        </div>
+        <div class="form-group">
+          <label>Solicitante *</label>
+          <input type="text" id="loan-requester" required placeholder="Nombre o departamento">
+        </div>
+        <div class="form-group">
+          <label>Departamento *</label>
+          <select id="loan-dept" required>
+            <option value="">Seleccionar...</option>
+            <option value="academica">Secretaría Académica</option>
+            <option value="rh">Recursos Humanos</option>
+            <option value="servicio">Servicio Social</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Motivo *</label>
+          <textarea id="loan-reason" rows="2" required placeholder="Describa el propósito..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Salida</label>
+            <input type="date" id="loan-start" required>
+          </div>
+          <div class="form-group">
+            <label>Devolver antes de</label>
+            <input type="date" id="loan-end" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>🔲 Confirmar con QR</label>
+          <div class="qr-confirm-area">
+            <button type="button" class="btn-outline" onclick="Scanner.activateForLoan()">
+              📷 Escanear QR del expediente
+            </button>
+            <p id="loan-scan-status" class="scan-status">Esperando escaneo...</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="UI.closeModal('loan-modal')">Cancelar</button>
+          <button type="submit" class="btn-primary" id="btn-submit-loan" disabled>✅ Confirmar préstamo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Vista Previa QR -->
+  <div id="qr-preview-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🔲 Vista Previa de QR</h3>
+        <button class="close-btn" onclick="UI.closeModal('qr-preview-modal')">&times;</button>
+      </div>
+      <div class="qr-preview-center">
+        <canvas id="qr-canvas"></canvas>
+        <p id="qr-data-preview" class="qr-data-text"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="UI.closeModal('qr-preview-modal')">Cerrar</button>
+        <button class="btn-primary" onclick="QRGenerator.printFromPreview()">🖨️ Imprimir etiqueta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notificaciones -->
+  <div id="notification-area" class="notification-area"></div>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/scanner.js"></script>
+  <script src="js/vault.js"></script>
+  <script src="js/vault-map.js"></script>
+  <script src="js/loan.js"></script>
+  <script src="js/qr-generator.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
