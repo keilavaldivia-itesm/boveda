@@ -1,138 +1,167 @@
-// Módulo de autenticación y gestión de roles
-
+/**
+ * AUTH.JS — Autenticación con Google OAuth + roles institucionales
+ * Dominio restringido: tec.mx
+ * Client ID: 536455335373-8b1vhm7d1i5c17ck9av8laatd93ug5as.apps.googleusercontent.com
+ */
 const Auth = {
-  // Roles disponibles
-  roles: {
-    ADMIN: 'admin',
-    ARCHIVIST: 'archivist', 
-    CONSULTANT: 'consultant',
-    REQUESTER: 'requester'
-  },
-  
-  // Usuario actual
   currentUser: null,
-  
-  // Verificar si hay sesión activa
+  GOOGLE_CLIENT_ID: '536455335373-8b1vhm7d1i5c17ck9av8laatd93ug5as.apps.googleusercontent.com',
+  ALLOWED_DOMAIN: 'tec.mx',
+
+  // ── Lista blanca de correos autorizados ──────────────────────────────
+  allowedEmails: {
+    'lupita.lopez@tec.mx':     'admin',
+    'keila.valdivia@tec.mx':   'admin',
+    'anacris.sigala@tec.mx':   'admin',
+    'cesar.parra@tec.mx':      'admin',
+    'claudia.guerrero@tec.mx': 'admin',
+  },
+
+  // Usuarios demo para pruebas sin Google
+  demoUsers: [
+    { id:'demo-1', name:'Admin Demo',     email:'admin@tec.mx',    role:'admin',     picture:null },
+    { id:'demo-2', name:'Archivista Demo',email:'archivo@tec.mx',  role:'archivist', picture:null },
+    { id:'demo-3', name:'Consulta Demo',  email:'consulta@tec.mx', role:'viewer',    picture:null },
+  ],
+
   init() {
-    const saved = sessionStorage.getItem('vault_user');
+    // Cargar lista de correos guardada
+    this.loadAllowedEmails();
+    // Recuperar sesión guardada
+    const saved = localStorage.getItem('vault_session');
     if (saved) {
       try {
-        this.currentUser = JSON.parse(saved);
-        UI.updateAuthUI(true);
-        return true;
-      } catch (e) {
-        this.logout();
-      }
+        const session = JSON.parse(saved);
+        // Verificar que no haya expirado (8 horas)
+        if (session.exp && new Date(session.exp) > new Date()) {
+          this.currentUser = session.user;
+          UI.updateAuthUI(true);
+          return;
+        } else {
+          localStorage.removeItem('vault_session');
+        }
+      } catch {}
     }
-    return false;
+    UI.updateAuthUI(false);
   },
-  
-  // Manejar login del formulario
-  async handleLogin(event) {
-    event.preventDefault();
-    
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-    
+
+  // ── Google Sign-In callback ─────────────────────────────────────────
+  handleGoogleCredential(response) {
     try {
-      // Validación básica (en producción, usar backend)
-      if (!Utils.isValidUniversityEmail(email)) {
-        throw new Error('Use su correo institucional');
+      // Decodificar JWT de Google (sin verificar firma en cliente — OK para UI)
+      const payload = JSON.parse(atob(response.credential.split('.')[1]));
+      const email   = payload.email || '';
+      const domain  = email.split('@')[1] || '';
+
+      // 1. Verificar dominio
+      if (domain !== this.ALLOWED_DOMAIN) {
+        UI.showNotification('⛔ Solo se permite acceso con correo @' + this.ALLOWED_DOMAIN, 'error');
+        UI.closeModal('login-modal');
+        return;
       }
-      
-      if (password.length < 6) {
-        throw new Error('Contraseña muy corta');
+
+      // 2. Verificar lista blanca
+      const role = this.allowedEmails[email];
+      if (!role) {
+        UI.showNotification('⛔ Tu cuenta no tiene acceso autorizado. Contacta al administrador.', 'error');
+        UI.closeModal('login-modal');
+        return;
       }
-      
-      // Simular respuesta del servidor (REEMPLAZAR con llamada real)
-      const user = {
-        id: Utils.uuid(),
-        email: email,
-        name: email.split('@')[0],
-        role: email.includes('admin') ? this.roles.ADMIN : 
-              email.includes('archivo') ? this.roles.ARCHIVIST :
-              email.includes('consulta') ? this.roles.CONSULTANT :
-              this.roles.REQUESTER,
-        department: 'General',
-        token: 'mock_token_' + Utils.uuid()
+      this.currentUser = {
+        id:      payload.sub,
+        name:    payload.name,
+        email,
+        role,
+        picture: payload.picture || null,
+        googleAuth: true,
       };
-      
-      // Guardar sesión
-      this.currentUser = user;
-      sessionStorage.setItem('vault_user', JSON.stringify(user));
-      
-      // Actualizar UI
-      UI.updateAuthUI(true);
+
+      this._saveSession();
       UI.closeModal('login-modal');
-      UI.showNotification('✅ Sesión iniciada como ' + user.name);
-      
-      // Resetear formulario
-      event.target.reset();
-      
-    } catch (error) {
-      UI.showNotification('❌ ' + error.message, 'error');
+      UI.updateAuthUI(true);
+      UI.showNotification('✅ Bienvenido/a, ' + payload.name.split(' ')[0]);
+
+    } catch (e) {
+      UI.showNotification('❌ Error al verificar credenciales de Google', 'error');
+      console.error('Google auth error:', e);
     }
   },
-  
-  // Login SSO institucional
-  async ssoLogin(event) {
-    event?.preventDefault();
-    
-    // En producción: redirigir a proveedor OAuth
-    // window.location.href = 'https://sso.universidad.edu.mx/oauth/authorize?client_id=keila_vault&redirect_uri=' + encodeURIComponent(window.location.href);
-    
-    // Demo: simular login exitoso
-    this.currentUser = {
-      id: Utils.uuid(),
-      email: 'demo@universidad.edu.mx',
-      name: 'Usuario Demo',
-      role: this.roles.ARCHIVIST,
-      department: 'Archivo Central',
-      token: 'sso_token_' + Utils.uuid()
-    };
-    
-    sessionStorage.setItem('vault_user', JSON.stringify(this.currentUser));
-    UI.updateAuthUI(true);
-    UI.closeModal('login-modal');
-    UI.showNotification('✅ Conectado vía SSO');
+
+  _inferRole(email) {
+    // Para demo users — busca en allowedEmails primero
+    return this.allowedEmails[email] || 'viewer';
   },
-  
-  // Cerrar sesión
+
+  // ── Gestión de lista blanca (solo admins) ─────────────────────────
+  addAllowedEmail(email, role) {
+    if (!Auth.isAdmin()) { UI.showNotification('⛔ Solo administradores', 'error'); return; }
+    if (!email.endsWith('@' + this.ALLOWED_DOMAIN)) {
+      UI.showNotification('⛔ El correo debe ser @' + this.ALLOWED_DOMAIN, 'error'); return;
+    }
+    this.allowedEmails[email] = role || 'viewer';
+    localStorage.setItem('vault_allowed_emails', JSON.stringify(this.allowedEmails));
+    UI.showNotification('✅ Acceso otorgado a ' + email);
+  },
+
+  removeAllowedEmail(email) {
+    if (!Auth.isAdmin()) { UI.showNotification('⛔ Solo administradores', 'error'); return; }
+    delete this.allowedEmails[email];
+    localStorage.setItem('vault_allowed_emails', JSON.stringify(this.allowedEmails));
+    UI.showNotification('🗑️ Acceso revocado: ' + email);
+  },
+
+  loadAllowedEmails() {
+    const saved = localStorage.getItem('vault_allowed_emails');
+    if (saved) { try { Object.assign(this.allowedEmails, JSON.parse(saved)); } catch {} }
+  },
+
+  // ── Login demo (sin Google) ─────────────────────────────────────────
+  handleLogin(event) {
+    event.preventDefault();
+    const email = document.getElementById('login-email').value.toLowerCase();
+    const pass  = document.getElementById('login-password').value;
+
+    const demo = this.demoUsers.find(u => u.email === email);
+    if (demo && pass === 'demo1234') {
+      this.currentUser = { ...demo };
+      this._saveSession();
+      UI.closeModal('login-modal');
+      UI.updateAuthUI(true);
+      UI.showNotification('✅ Sesión demo iniciada como ' + demo.role);
+    } else {
+      UI.showNotification('❌ Credenciales incorrectas. Demo: demo1234', 'error');
+    }
+  },
+
+  ssoLogin(event) {
+    event.preventDefault();
+    // Disparar el flujo de Google si está cargado
+    if (typeof google !== 'undefined' && google.accounts) {
+      google.accounts.id.prompt();
+    } else {
+      UI.showNotification('⚠️ Cargando Google Sign-In...', 'error');
+    }
+  },
+
+  _saveSession() {
+    const exp = new Date();
+    exp.setHours(exp.getHours() + 8);
+    localStorage.setItem('vault_session', JSON.stringify({ user: this.currentUser, exp: exp.toISOString() }));
+  },
+
   logout() {
+    if (this.currentUser?.googleAuth && typeof google !== 'undefined') {
+      google.accounts.id.disableAutoSelect();
+    }
     this.currentUser = null;
-    sessionStorage.removeItem('vault_user');
+    localStorage.removeItem('vault_session');
     UI.updateAuthUI(false);
     UI.showNotification('👋 Sesión cerrada');
-    
-    // Ocultar panel de bóveda si está abierto
-    if (!document.getElementById('vault-panel').classList.contains('hidden')) {
-      Vault.togglePanel();
-    }
   },
-  
-  // Verificar permisos
-  hasRole(...roles) {
-    if (!this.currentUser) return false;
-    return roles.includes(this.currentUser.role);
-  },
-  
-  // Verificar si es admin
-  isAdmin() {
-    return this.hasRole(this.roles.ADMIN);
-  },
-  
-  // Verificar si puede gestionar expedientes
-  canManageRecords() {
-    return this.hasRole(this.roles.ADMIN, this.roles.ARCHIVIST);
-  },
-  
-  // Verificar si puede solicitar préstamos
-  canRequestLoans() {
-    return this.currentUser !== null; // Todos los roles autenticados
-  }
-};
 
-// Inicializar al cargar la app
-document.addEventListener('DOMContentLoaded', () => {
-  Auth.init();
-});
+  // ── Permisos ────────────────────────────────────────────────────────
+  isAdmin()           { return this.currentUser?.role === 'admin'; },
+  isArchivist()       { return ['admin','archivist'].includes(this.currentUser?.role); },
+  canManageRecords()  { return this.isArchivist(); },
+  canRequestLoans()   { return !!this.currentUser; },
+};
