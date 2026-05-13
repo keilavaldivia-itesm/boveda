@@ -166,6 +166,140 @@
     .page-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
     .page-btn:disabled { opacity:.4; cursor:default; }
 
+    /* ── MAP VIEW ─────────────────────────────────────────────────────── */
+    .mapview-container {
+      display:grid; grid-template-columns:280px 1fr 260px;
+      height:calc(100vh - 60px); overflow:hidden;
+    }
+    @media(max-width:900px){ .mapview-container{ grid-template-columns:1fr; grid-template-rows:auto auto auto; } }
+
+    /* Tree panel */
+    .tree-panel {
+      border-right:1px solid var(--border); display:flex; flex-direction:column;
+      background:var(--surface); overflow:hidden;
+    }
+    .tree-panel-header {
+      padding:12px 14px; font-weight:700; font-size:.88rem;
+      border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;
+    }
+    .tree-search { padding:8px 12px; border-bottom:1px solid var(--border); }
+    .tree-search input {
+      width:100%; padding:6px 10px; border:1px solid var(--border);
+      border-radius:6px; font-size:.82rem;
+    }
+    .hierarchy-tree { flex:1; overflow-y:auto; padding:8px 0; }
+    .tree-node { margin:0; }
+    .tree-row {
+      display:flex; align-items:center; gap:6px; padding:5px 12px;
+      cursor:pointer; transition:background .15s; font-size:.83rem;
+    }
+    .tree-row:hover { background:rgba(37,99,235,.06); }
+    .tree-toggle { font-size:.65rem; color:var(--text-muted); width:12px; flex-shrink:0; }
+    .tree-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+    .tree-label { flex:1; font-weight:500; color:var(--text); }
+    .tree-badge {
+      background:var(--primary); color:#fff; border-radius:10px;
+      padding:1px 7px; font-size:.7rem; font-weight:700; flex-shrink:0;
+    }
+    .tree-badge-loc { background:#6b7280; }
+    .tree-loc-icon { font-size:.82rem; }
+    .tree-children { padding-left:16px; }
+    .tree-hidden { display:none; }
+    .tree-serie-row { font-weight:700; }
+    .tree-loc-row { color:var(--text-muted); }
+    .tree-leaf {
+      display:flex; align-items:center; gap:6px; padding:4px 12px;
+      cursor:pointer; font-size:.78rem; border-radius:6px; margin:1px 4px;
+      transition:background .12s;
+    }
+    .tree-leaf:hover { background:rgba(37,99,235,.08); }
+    .tree-leaf-num { font-family:monospace; color:var(--primary); font-weight:600; }
+    .tree-leaf-name { color:var(--text-muted); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .tree-selected-serie > .tree-serie-row { background:rgba(37,99,235,.1); border-radius:6px; }
+    .tree-selected-loc > .tree-loc-row { background:rgba(37,99,235,.12); border-radius:6px; }
+    .tree-empty { padding:24px 16px; text-align:center; color:var(--text-muted); font-size:.85rem; }
+
+    /* Vault map panel */
+    .vault-map-panel {
+      display:flex; flex-direction:column; border-right:1px solid var(--border);
+      background:var(--bg); overflow:hidden;
+    }
+    .vault-map-header {
+      padding:12px 16px; font-weight:700; font-size:.88rem;
+      border-bottom:1px solid var(--border); display:flex; justify-content:space-between;
+      align-items:center; background:var(--surface); gap:12px; flex-wrap:wrap;
+    }
+    .map-legend { display:flex; gap:10px; flex-wrap:wrap; }
+    .legend-item-map { display:flex; align-items:center; gap:5px; font-size:.72rem; color:var(--text-muted); }
+    .legend-dot-map { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+    .vault-map-scroll { flex:1; overflow:auto; padding:20px; }
+    .vault-map-guide { padding:8px 16px; font-size:.75rem; color:var(--text-muted); border-top:1px solid var(--border); }
+
+    .vault-building { display:flex; flex-direction:column; gap:14px; min-width:500px; }
+    .vault-building-label { font-weight:700; font-size:.88rem; color:var(--text-muted); margin-bottom:4px; }
+    .vault-shelf { display:flex; align-items:center; gap:10px; }
+    .shelf-name-tag {
+      width:52px; font-size:.78rem; font-weight:700; color:var(--text-muted);
+      text-align:right; flex-shrink:0;
+    }
+    .shelf-boxes { display:flex; gap:8px; flex-wrap:nowrap; }
+
+    .vault-box {
+      width:64px; height:80px; border:2px solid var(--border); border-radius:8px;
+      cursor:pointer; position:relative; overflow:hidden; background:var(--surface);
+      display:flex; flex-direction:column; justify-content:flex-end;
+      transition:border-color .2s, box-shadow .2s, transform .15s;
+    }
+    .vault-box:hover { border-color:var(--primary); transform:translateY(-2px); box-shadow:0 4px 12px rgba(37,99,235,.2); }
+    .vault-box-selected { border-color:var(--primary) !important; box-shadow:0 0 0 3px rgba(37,99,235,.25) !important; }
+    .vault-box-highlight { border-color:#ca8a04; box-shadow:0 0 0 2px rgba(202,138,4,.2); }
+    .box-fill-bar { width:100%; border-radius:0 0 6px 6px; transition:height .4s; min-height:2px; }
+    .box-label-overlay {
+      position:absolute; top:0; left:0; right:0; bottom:0;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    }
+    .box-num { font-size:.75rem; font-weight:700; color:var(--text); }
+    .box-count-badge {
+      background:rgba(0,0,0,.12); color:var(--text); border-radius:8px;
+      padding:1px 5px; font-size:.65rem; font-weight:700;
+    }
+
+    /* Info panel */
+    .info-panel { overflow-y:auto; background:var(--surface); }
+    .map-info-panel { padding:16px; }
+    .info-header {
+      font-size:.92rem; font-weight:700; margin-bottom:14px;
+      padding-bottom:8px; border-bottom:2px solid var(--border);
+    }
+    .info-kpis { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:14px; }
+    .info-kpi {
+      background:var(--bg); border:1px solid var(--border); border-radius:8px;
+      padding:8px; text-align:center; display:flex; flex-direction:column; gap:2px;
+    }
+    .info-kpi.success .info-kpi-val { color:#16a34a; }
+    .info-kpi.warn    .info-kpi-val { color:#ca8a04; }
+    .info-kpi.danger  .info-kpi-val { color:#dc2626; }
+    .info-kpi-val { font-size:1.3rem; font-weight:700; color:var(--primary); }
+    .info-kpi-lbl { font-size:.68rem; color:var(--text-muted); text-transform:uppercase; }
+    .info-row {
+      display:flex; justify-content:space-between; align-items:flex-start;
+      padding:5px 0; border-bottom:1px solid var(--border); font-size:.82rem; gap:8px;
+    }
+    .info-row:last-child { border-bottom:none; }
+    .info-row label { color:var(--text-muted); font-size:.75rem; flex-shrink:0; }
+    .info-section-title { font-size:.75rem; font-weight:700; text-transform:uppercase;
+      color:var(--text-muted); margin:12px 0 6px; letter-spacing:.04em; }
+    .info-record-list { display:flex; flex-direction:column; gap:4px; max-height:220px; overflow-y:auto; }
+    .info-record-item {
+      display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:6px;
+      cursor:pointer; font-size:.78rem; transition:background .12s;
+    }
+    .info-record-item:hover { background:rgba(37,99,235,.07); }
+    .info-record-num { font-family:monospace; color:var(--primary); font-weight:600; flex-shrink:0; }
+    .info-record-name { flex:1; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .info-record-status { font-size:.68rem; font-weight:600; flex-shrink:0; }
+    .info-hint { color:var(--text-muted); font-size:.82rem; text-align:center; padding:24px 12px; line-height:1.6; }
+
     /* ── LAYOUT ───────────────────────────────────────────────────────── */
     .main-with-panel { display:flex; height:calc(100vh - 60px); overflow:hidden; }
     .scanner-wrap { flex:1; overflow-y:auto; }
@@ -187,6 +321,7 @@
       <button class="nav-tab active" onclick="Views.show('dashboard')">📊 Dashboard</button>
       <button class="nav-tab" onclick="Views.show('spreadsheet')">📋 Expedientes</button>
       <button class="nav-tab" onclick="Views.show('scanner')">📷 Escáner</button>
+      <button class="nav-tab" onclick="Views.show('mapview')">🗺️ Mapa</button>
     </nav>
     <div class="header-right">
       <button id="btn-login" class="btn-outline" onclick="UI.showModal('login-modal')">🔐 Ingresar</button>
@@ -480,6 +615,49 @@
     </div>
   </div>
 
+  <!-- ▌ VISTA 4: MAPA DE BÓVEDA + ÁRBOL JERÁRQUICO ──────────────────── -->
+  <div id="view-mapview" class="view">
+    <div class="mapview-container">
+
+      <!-- Panel izquierdo: Árbol jerárquico -->
+      <div class="tree-panel">
+        <div class="tree-panel-header">
+          <span>🌳 Árbol Jerárquico</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn-xs" onclick="MapView.expandAll()" title="Expandir todo">⊕</button>
+            <button class="btn-xs" onclick="MapView.collapseAll()" title="Colapsar todo">⊖</button>
+          </div>
+        </div>
+        <div class="tree-search">
+          <input type="text" placeholder="🔍 Filtrar árbol..." oninput="MapView.filterTree(this.value)">
+        </div>
+        <div id="hierarchy-tree" class="hierarchy-tree"></div>
+      </div>
+
+      <!-- Panel central: Mapa físico -->
+      <div class="vault-map-panel">
+        <div class="vault-map-header">
+          <span>🏢 Mapa de Bóveda</span>
+          <div id="map-legend" class="map-legend"></div>
+        </div>
+        <div class="vault-map-scroll">
+          <div id="vault-map-visual" class="vault-map-visual"></div>
+        </div>
+        <div class="vault-map-guide">
+          <span>💡 Haz clic en cualquier caja para ver su contenido</span>
+        </div>
+      </div>
+
+      <!-- Panel derecho: Info -->
+      <div class="info-panel">
+        <div id="map-info-panel" class="map-info-panel">
+          <div class="info-hint">Selecciona una serie o caja para ver detalles</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ── MODALS ─────────────────────────────────────────────────────────── -->
   <div id="vault-map-modal" class="modal hidden">
     <div class="modal-content large">
@@ -573,6 +751,7 @@
   <script src="js/ui.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/sheet.js"></script>
+  <script src="js/mapview.js"></script>
   <script src="js/views.js"></script>
   <script src="js/app.js"></script>
 </body>
