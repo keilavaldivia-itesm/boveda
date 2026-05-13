@@ -1,24 +1,18 @@
-// Inicialización principal de la aplicación
+// Inicialización principal
 document.addEventListener('DOMContentLoaded', () => {
-  // Inicializar módulos en orden
-  try { Auth.init(); } catch(e) { console.warn('Auth init:', e); }
-  try { Vault.init(); } catch(e) { console.warn('Vault init:', e); }
-  try { Loan.init(); } catch(e) { console.warn('Loan init:', e); }
-  try { Scanner.init(); } catch(e) { console.warn('Scanner init:', e); }
+  try { Auth.init(); }    catch(e) { console.warn('Auth:', e); }
+  try { Vault.init(); }   catch(e) { console.warn('Vault:', e); }
+  try { Loan.init(); }    catch(e) { console.warn('Loan:', e); }
+  try { Scanner.init(); } catch(e) { console.warn('Scanner:', e); }
+  try { Dashboard.render(); } catch(e) { console.warn('Dashboard:', e); }
+  try { Sheet.filtered = [...(Vault.records||[])]; Sheet._applySort(); } catch(e) {}
 
-  // Cerrar modales al hacer click en el fondo
   document.querySelectorAll('.modal').forEach(modal => {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.classList.add('hidden');
-    });
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.querySelectorAll('.modal:not(.hidden)').forEach(m => m.classList.add('hidden'));
   });
 
-  // Tecla ESC cierra modales
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      document.querySelectorAll('.modal:not(.hidden)').forEach(m => m.classList.add('hidden'));
-    }
-  });
-
-  console.log('✅ Escáner Keila + Bóveda Universitaria iniciado');
+  console.log('✅ Escáner Keila + Bóveda v2.0 — ISO 15489:2016');
 });
