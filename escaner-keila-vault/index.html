@@ -7,10 +7,57 @@
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/vault.css">
   <link rel="stylesheet" href="css/responsive.css">
+  <!-- Google Identity Services (OAuth) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <style>
+    /* ── USERS ADMIN VIEW ────────────────────────────────────────────── */
+    .users-container { display:flex; flex-direction:column; height:calc(100vh - 60px); overflow:hidden; }
+    .users-header {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:16px 20px; border-bottom:1px solid var(--border);
+      background:var(--surface); flex-wrap:wrap; gap:12px;
+    }
+    .users-filters {
+      display:flex; gap:8px; padding:10px 20px;
+      border-bottom:1px solid var(--border); background:var(--bg); flex-wrap:wrap;
+    }
+    .roles-info {
+      display:flex; gap:10px; padding:12px 20px;
+      border-bottom:1px solid var(--border); flex-wrap:wrap;
+    }
+    .role-info-card {
+      display:flex; align-items:center; gap:10px; padding:10px 14px;
+      border-radius:8px; font-size:.78rem; flex:1; min-width:180px;
+    }
+    .role-info-card.role-admin    { background:#fef2f2; color:#991b1b; }
+    .role-info-card.role-archivist{ background:#eff6ff; color:#1e40af; }
+    .role-info-card.role-viewer   { background:#f0fdf4; color:#166534; }
+    .role-info-icon { font-size:1.4rem; }
+    .role-info-card strong { display:block; font-size:.82rem; margin-bottom:1px; }
+    .role-info-card span { font-size:.74rem; opacity:.8; }
+
+    /* ── USERS VIEW (old - kept for role pills) ───────────────────── */ ──────────────────────────────────────────────────── */
+    .role-pill {
+      display:inline-block; padding:2px 10px; border-radius:10px;
+      font-size:.72rem; font-weight:700;
+    }
+    .role-admin    { background:#fef2f2; color:#dc2626; }
+    .role-archivist{ background:#eff6ff; color:#2563eb; }
+    .role-viewer   { background:#f0fdf4; color:#16a34a; }
+
+    /* ── LOGIN ───────────────────────────────────────────────────────── */
+    .login-divider {
+      width:100%; text-align:center; border-top:1px solid var(--border);
+      line-height:0; margin:4px 0;
+    }
+    .login-divider span {
+      background:var(--surface); padding:0 10px;
+      font-size:.75rem; color:var(--text-muted);
+    }
+
     /* ── ZONE OCCUPANCY ──────────────────────────────────────────────── */
     .zone-row { display:flex; flex-direction:column; gap:4px; }
     .zone-header { display:flex; align-items:center; gap:8px; font-size:.82rem; }
@@ -331,10 +378,12 @@
       <button class="nav-tab" onclick="Views.show('spreadsheet')">📋 Expedientes</button>
       <button class="nav-tab" onclick="Views.show('scanner')">📷 Escáner</button>
       <button class="nav-tab" onclick="Views.show('mapview')">🗺️ Mapa</button>
+      <button class="nav-tab" id="tab-users" onclick="Views.show('users')" style="display:none">👥 Usuarios</button>
     </nav>
     <div class="header-right">
       <button id="btn-login" class="btn-outline" onclick="UI.showModal('login-modal')">🔐 Ingresar</button>
       <div id="user-badge" class="user-badge hidden">
+        <img id="user-picture" src="" alt="" style="width:28px;height:28px;border-radius:50%;display:none;object-fit:cover">
         <span id="user-name">Usuario</span>
         <span id="user-role" class="role-badge">Rol</span>
         <button class="btn-sm" onclick="Auth.logout()">🚪</button>
@@ -414,23 +463,53 @@
 
   <!-- ── LOGIN MODAL ────────────────────────────────────────────────────── -->
   <div id="login-modal" class="modal hidden">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width:400px">
       <div class="modal-header">
-        <h3>🔐 Acceso Bóveda Universitaria</h3>
+        <h3>🔐 Acceso Bóveda UniArchive</h3>
         <button class="close-btn" onclick="UI.closeModal('login-modal')">&times;</button>
       </div>
-      <form id="login-form" onsubmit="Auth.handleLogin(event)">
-        <div class="form-group">
-          <label>Correo Institucional</label>
-          <input type="email" id="login-email" placeholder="usuario@universidad.edu.mx" required>
+
+      <!-- Google Sign-In button -->
+      <div style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:16px">
+        <p style="font-size:.85rem;color:var(--text-muted);text-align:center">
+          Inicia sesión con tu cuenta institucional <strong>@tec.mx</strong>
+        </p>
+
+        <!-- Google Identity Services rendered button -->
+        <div id="g_id_onload"
+             data-client_id="536455335373-8b1vhm7d1i5c17ck9av8laatd93ug5as.apps.googleusercontent.com"
+             data-callback="Auth.handleGoogleCredential"
+             data-auto_prompt="false">
         </div>
-        <div class="form-group">
-          <label>Contraseña</label>
-          <input type="password" id="login-password" placeholder="••••••••" required>
+        <div class="g_id_signin"
+             data-type="standard"
+             data-size="large"
+             data-theme="outline"
+             data-text="signin_with"
+             data-shape="rectangular"
+             data-logo_alignment="left"
+             data-width="320">
         </div>
-        <button type="submit" class="btn-primary btn-block">Ingresar</button>
-        <p class="sso-link"><a href="#" onclick="Auth.ssoLogin(event)">🔗 Acceder con cuenta institucional</a></p>
-      </form>
+
+        <div class="login-divider"><span>o acceso demo</span></div>
+
+        <form id="login-form" onsubmit="Auth.handleLogin(event)" style="width:100%">
+          <div class="form-group">
+            <label>Correo demo</label>
+            <input type="email" id="login-email" placeholder="admin@tec.mx">
+          </div>
+          <div class="form-group">
+            <label>Contraseña</label>
+            <input type="password" id="login-password" placeholder="demo1234">
+          </div>
+          <button type="submit" class="btn-outline btn-block">Entrar en modo demo</button>
+        </form>
+
+        <p style="font-size:.73rem;color:var(--text-muted);text-align:center">
+          Demo: admin@tec.mx / demo1234<br>
+          Solo cuentas @tec.mx tienen acceso real
+        </p>
+      </div>
     </div>
   </div>
 
@@ -765,6 +844,127 @@
     </div>
   </div>
 
+  <!-- ▌ VISTA 5: ADMINISTRACIÓN DE USUARIOS (solo admin) ─────────── -->
+  <div id="view-users" class="view">
+    <div class="users-container">
+
+      <!-- Header -->
+      <div class="users-header">
+        <div>
+          <h2 style="font-size:1.1rem;font-weight:700;margin:0">👥 Administración de Usuarios</h2>
+          <p id="users-count" style="font-size:.78rem;color:var(--text-muted);margin:2px 0 0"></p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-outline btn-sm" onclick="UsersView.importList()">📥 Importar CSV</button>
+          <button class="btn-outline btn-sm" onclick="UsersView.exportList()">⬇ Exportar</button>
+          <button class="btn-primary" onclick="UsersView.showAdd()">+ Agregar usuario</button>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="users-filters">
+        <input type="text" id="users-search" placeholder="🔍 Buscar por correo..."
+               oninput="UsersView.applyFilter()" style="flex:1;min-width:200px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:.85rem">
+        <select id="users-filter-role" onchange="UsersView.applyFilter()"
+                style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:.85rem">
+          <option value="">Todos los roles</option>
+          <option value="admin">⚙️ Admin</option>
+          <option value="archivist">📂 Archivist</option>
+          <option value="viewer">👁 Viewer</option>
+        </select>
+      </div>
+
+      <!-- Roles info cards -->
+      <div class="roles-info">
+        <div class="role-info-card role-admin">
+          <span class="role-info-icon">⚙️</span>
+          <div><strong>Admin</strong><br><span>Acceso total + gestión de usuarios</span></div>
+        </div>
+        <div class="role-info-card role-archivist">
+          <span class="role-info-icon">📂</span>
+          <div><strong>Archivist</strong><br><span>Crea, edita, mueve y presta expedientes</span></div>
+        </div>
+        <div class="role-info-card role-viewer">
+          <span class="role-info-icon">👁</span>
+          <div><strong>Viewer</strong><br><span>Solo consulta, sin modificaciones</span></div>
+        </div>
+      </div>
+
+      <!-- Tabla -->
+      <div class="table-wrap" style="flex:1">
+        <table class="records-table">
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Rol</th>
+              <th>Permisos</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Hint -->
+      <div style="padding:10px 16px;font-size:.75rem;color:var(--text-muted);border-top:1px solid var(--border)">
+        ⚠️ Solo cuentas <strong>@tec.mx</strong> pueden acceder. Los cambios se guardan localmente en este navegador.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal Alta/Edición de usuario ──────────────────────────────── -->
+  <div id="user-modal" class="modal hidden">
+    <div class="modal-content" style="max-width:440px">
+      <div class="modal-header">
+        <h3 id="user-modal-title">➕ Otorgar Acceso</h3>
+        <button class="close-btn" onclick="UI.closeModal('user-modal')">&times;</button>
+      </div>
+      <input type="hidden" id="user-modal-mode" value="add">
+      <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+        <div class="form-group">
+          <label>Correo institucional *</label>
+          <input type="email" id="new-user-email" placeholder="nombre.apellido@tec.mx"
+                 style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.9rem">
+          <small style="color:var(--text-muted)">Solo se aceptan correos @tec.mx</small>
+        </div>
+        <div class="form-group">
+          <label>Rol *</label>
+          <select id="new-user-role"
+                  style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.9rem">
+            <option value="viewer">👁 Viewer — solo consulta</option>
+            <option value="archivist">📂 Archivist — gestiona expedientes</option>
+            <option value="admin">⚙️ Admin — acceso total</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="UI.closeModal('user-modal')">Cancelar</button>
+          <button class="btn-primary" id="user-modal-btn" onclick="UsersView.confirmModal()">✅ Otorgar acceso</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal confirmación de baja ─────────────────────────────────── -->
+  <div id="confirm-remove-modal" class="modal hidden">
+    <div class="modal-content" style="max-width:380px">
+      <div class="modal-header">
+        <h3>⚠️ Revocar Acceso</h3>
+        <button class="close-btn" onclick="UI.closeModal('confirm-remove-modal')">&times;</button>
+      </div>
+      <input type="hidden" id="pending-remove-email">
+      <div style="padding:20px;text-align:center;display:flex;flex-direction:column;gap:16px">
+        <div style="font-size:2.5rem">🚫</div>
+        <p style="font-size:.9rem">¿Revocar acceso al usuario:</p>
+        <p id="confirm-remove-email" style="font-weight:700;color:#dc2626;font-size:.95rem;word-break:break-all"></p>
+        <p style="font-size:.8rem;color:var(--text-muted)">Esta persona ya no podrá iniciar sesión en la bóveda.</p>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="UI.closeModal('confirm-remove-modal')">Cancelar</button>
+          <button class="btn-primary" style="background:#dc2626;border-color:#dc2626" onclick="UsersView.executeRemove()">🗑 Sí, revocar acceso</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── MODALS ─────────────────────────────────────────────────────────── -->
   <div id="vault-map-modal" class="modal hidden">
     <div class="modal-content large">
@@ -860,6 +1060,7 @@
   <script src="js/ui.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/sheet.js"></script>
+  <script src="js/users.js"></script>
   <script src="js/mapview.js"></script>
   <script src="js/views.js"></script>
   <script src="js/app.js"></script>
