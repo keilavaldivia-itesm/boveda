@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escáner Keila + Bóveda Universitaria</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/vault.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <style>
+    /* ── NAV TABS ─────────────────────────────────────────────────────── */
+    .app-nav { display:flex; gap:2px; background:var(--border); padding:2px; border-radius:10px; margin:0 16px; }
+    .nav-tab {
+      flex:1; padding:8px 14px; border:none; background:transparent; border-radius:8px;
+      cursor:pointer; font-size:0.85rem; font-weight:600; color:var(--text-muted);
+      transition:all .2s; white-space:nowrap;
+    }
+    .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 4px rgba(0,0,0,.12); }
+    .nav-tab:hover:not(.active) { background:rgba(255,255,255,.5); color:var(--text); }
+
+    /* ── VIEWS ────────────────────────────────────────────────────────── */
+    .view { display:none; width:100%; }
+    .view.active { display:block; }
+
+    /* ── DASHBOARD ────────────────────────────────────────────────────── */
+    .dashboard { padding:20px; max-width:1200px; margin:0 auto; }
+    .kpi-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+      gap:14px; margin-bottom:24px;
+    }
+    .kpi-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px;
+      padding:18px; display:flex; flex-direction:column; gap:6px;
+      transition:box-shadow .2s;
+    }
+    .kpi-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.08); }
+    .kpi-icon { font-size:1.6rem; }
+    .kpi-value { font-size:2rem; font-weight:700; color:var(--primary); line-height:1; }
+    .kpi-label { font-size:0.78rem; color:var(--text-muted); font-weight:500; text-transform:uppercase; letter-spacing:.04em; }
+    .kpi-sub { font-size:0.75rem; color:var(--text-muted); }
+    .kpi-card.warn .kpi-value { color:#ca8a04; }
+    .kpi-card.danger .kpi-value { color:#dc2626; }
+    .kpi-card.success .kpi-value { color:#16a34a; }
+
+    .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+    @media(max-width:700px){ .dash-grid { grid-template-columns:1fr; } }
+
+    .dash-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px;
+    }
+    .dash-card h3 { font-size:.9rem; font-weight:700; margin-bottom:14px; color:var(--text); }
+
+    /* Bar chart */
+    .bar-chart { display:flex; flex-direction:column; gap:10px; }
+    .bar-row { display:flex; align-items:center; gap:10px; font-size:0.82rem; }
+    .bar-label { width:110px; color:var(--text-muted); text-align:right; flex-shrink:0; }
+    .bar-track { flex:1; height:20px; background:var(--border); border-radius:10px; overflow:hidden; }
+    .bar-fill { height:100%; border-radius:10px; transition:width .6s; }
+    .bar-count { width:28px; font-weight:600; color:var(--text); }
+
+    /* Pie-like donut via conic-gradient */
+    .donut-wrap { display:flex; align-items:center; gap:20px; }
+    .donut { width:100px; height:100px; border-radius:50%; flex-shrink:0; }
+    .legend { display:flex; flex-direction:column; gap:7px; font-size:0.82rem; }
+    .legend-item { display:flex; align-items:center; gap:7px; }
+    .legend-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+
+    /* Activity feed */
+    .activity-feed { display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; }
+    .activity-item { display:flex; gap:10px; align-items:flex-start; font-size:0.82rem; padding:7px 0; border-bottom:1px solid var(--border); }
+    .activity-item:last-child { border-bottom:none; }
+    .activity-icon { font-size:1rem; flex-shrink:0; margin-top:1px; }
+    .activity-text { flex:1; color:var(--text); }
+    .activity-time { color:var(--text-muted); font-size:0.74rem; white-space:nowrap; }
+
+    /* Retention alerts */
+    .alert-list { display:flex; flex-direction:column; gap:8px; }
+    .alert-item {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:9px 12px; border-radius:8px; font-size:0.82rem;
+    }
+    .alert-item.warn { background:#fef9c3; color:#92400e; }
+    .alert-item.danger { background:#fef2f2; color:#991b1b; }
+    .alert-item.ok { background:#f0fdf4; color:#166534; }
+    .alert-num { font-weight:700; }
+    .alert-days { font-size:.75rem; opacity:.8; }
+    .no-alerts { color:var(--text-muted); font-size:.85rem; text-align:center; padding:20px; }
+
+    /* ── SPREADSHEET VIEW ─────────────────────────────────────────────── */
+    .spreadsheet-view { display:flex; flex-direction:column; height:calc(100vh - 60px); }
+    .sheet-toolbar {
+      display:flex; gap:8px; align-items:center; padding:10px 16px;
+      border-bottom:1px solid var(--border); background:var(--surface);
+      flex-wrap:wrap;
+    }
+    .sheet-toolbar input[type=text] {
+      padding:6px 10px; border:1px solid var(--border); border-radius:6px;
+      font-size:.85rem; width:200px;
+    }
+    .sheet-toolbar select {
+      padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:.85rem;
+    }
+    .sheet-count { margin-left:auto; font-size:.82rem; color:var(--text-muted); }
+
+    .table-wrap { flex:1; overflow:auto; }
+    table.records-table {
+      width:100%; border-collapse:collapse; font-size:.83rem; min-width:900px;
+    }
+    table.records-table thead {
+      position:sticky; top:0; z-index:5;
+      background:var(--surface); box-shadow:0 1px 0 var(--border);
+    }
+    table.records-table th {
+      padding:10px 12px; text-align:left; font-weight:700; color:var(--text-muted);
+      font-size:.75rem; text-transform:uppercase; letter-spacing:.04em;
+      cursor:pointer; user-select:none; white-space:nowrap;
+      border-bottom:2px solid var(--border);
+    }
+    table.records-table th:hover { color:var(--primary); }
+    table.records-table th .sort-icon { margin-left:4px; opacity:.4; }
+    table.records-table th.sorted .sort-icon { opacity:1; color:var(--primary); }
+    table.records-table td {
+      padding:9px 12px; border-bottom:1px solid var(--border);
+      vertical-align:middle; white-space:nowrap;
+    }
+    table.records-table tr:hover td { background:rgba(37,99,235,.04); cursor:pointer; }
+    table.records-table tr.selected td { background:rgba(37,99,235,.09); }
+    .cell-mono { font-family:monospace; font-size:.78rem; }
+    .cell-muted { color:var(--text-muted); }
+    .retention-chip {
+      display:inline-block; padding:2px 8px; border-radius:10px; font-size:.72rem; font-weight:600;
+    }
+    .ret-vigente { background:#dcfce7; color:#16a34a; }
+    .ret-proximo { background:#fef9c3; color:#ca8a04; }
+    .ret-vencido { background:#fef2f2; color:#dc2626; }
+
+    .row-actions { display:flex; gap:4px; }
+    .row-actions button {
+      padding:3px 7px; border:1px solid var(--border); background:transparent;
+      border-radius:5px; cursor:pointer; font-size:.75rem; color:var(--text-muted);
+      transition:all .15s;
+    }
+    .row-actions button:hover { background:var(--primary); color:#fff; border-color:var(--primary); }
+
+    /* inline edit */
+    .editable-cell { outline:none; }
+    .editable-cell:focus {
+      background:rgba(37,99,235,.07); outline:2px solid var(--primary);
+      outline-offset:-1px; border-radius:3px;
+    }
+    .edit-indicator { width:6px; height:6px; background:#ca8a04; border-radius:50%; display:inline-block; margin-right:4px; }
+
+    /* pagination */
+    .sheet-pagination {
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      padding:10px; border-top:1px solid var(--border); background:var(--surface);
+      font-size:.83rem;
+    }
+    .page-btn {
+      padding:5px 10px; border:1px solid var(--border); background:var(--surface);
+      border-radius:6px; cursor:pointer; font-size:.83rem;
+    }
+    .page-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .page-btn:disabled { opacity:.4; cursor:default; }
+
+    /* ── LAYOUT ───────────────────────────────────────────────────────── */
+    .main-with-panel { display:flex; height:calc(100vh - 60px); overflow:hidden; }
+    .scanner-wrap { flex:1; overflow-y:auto; }
+
+    /* header nav tweak */
+    .app-header { display:flex; align-items:center; gap:12px; padding:0 16px; height:60px; }
+    .header-left { flex-shrink:0; }
+    .header-nav { flex:1; }
+    .header-right { flex-shrink:0; display:flex; align-items:center; gap:8px; }
+  </style>
+</head>
+<body>
+  <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-left">
+      <h1 style="font-size:1rem;white-space:nowrap">🗄️ Escáner Keila <span class="badge-vault">Bóveda</span></h1>
+    </div>
+    <nav class="header-nav app-nav">
+      <button class="nav-tab active" onclick="Views.show('dashboard')">📊 Dashboard</button>
+      <button class="nav-tab" onclick="Views.show('spreadsheet')">📋 Expedientes</button>
+      <button class="nav-tab" onclick="Views.show('scanner')">📷 Escáner</button>
+    </nav>
+    <div class="header-right">
+      <button id="btn-login" class="btn-outline" onclick="UI.showModal('login-modal')">🔐 Ingresar</button>
+      <div id="user-badge" class="user-badge hidden">
+        <span id="user-name">Usuario</span>
+        <span id="user-role" class="role-badge">Rol</span>
+        <button class="btn-sm" onclick="Auth.logout()">🚪</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── LOGIN MODAL ────────────────────────────────────────────────────── -->
+  <div id="login-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🔐 Acceso Bóveda Universitaria</h3>
+        <button class="close-btn" onclick="UI.closeModal('login-modal')">&times;</button>
+      </div>
+      <form id="login-form" onsubmit="Auth.handleLogin(event)">
+        <div class="form-group">
+          <label>Correo Institucional</label>
+          <input type="email" id="login-email" placeholder="usuario@universidad.edu.mx" required>
+        </div>
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input type="password" id="login-password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn-primary btn-block">Ingresar</button>
+        <p class="sso-link"><a href="#" onclick="Auth.ssoLogin(event)">🔗 Acceder con cuenta institucional</a></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── VIEWS CONTAINER ───────────────────────────────────────────────── -->
+
+  <!-- ▌ VISTA 1: DASHBOARD ─────────────────────────────────────────────── -->
+  <div id="view-dashboard" class="view active">
+    <div class="dashboard">
+      <!-- KPIs -->
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="kpi-card"><span class="kpi-icon">📂</span><span class="kpi-value" id="kpi-total">0</span><span class="kpi-label">Total Expedientes</span></div>
+        <div class="kpi-card success"><span class="kpi-icon">🟢</span><span class="kpi-value" id="kpi-activos">0</span><span class="kpi-label">En Bóveda</span></div>
+        <div class="kpi-card warn"><span class="kpi-icon">🟡</span><span class="kpi-value" id="kpi-prestados">0</span><span class="kpi-label">Prestados</span></div>
+        <div class="kpi-card"><span class="kpi-icon">🔵</span><span class="kpi-value" id="kpi-transferidos">0</span><span class="kpi-label">Transferidos</span></div>
+        <div class="kpi-card danger"><span class="kpi-icon">⏰</span><span class="kpi-value" id="kpi-vencidos">0</span><span class="kpi-label">Ret. Vencida</span></div>
+        <div class="kpi-card warn"><span class="kpi-icon">⚠️</span><span class="kpi-value" id="kpi-proximos">0</span><span class="kpi-label">Ret. Próxima</span></div>
+      </div>
+
+      <div class="dash-grid">
+        <!-- Por serie -->
+        <div class="dash-card">
+          <h3>📚 Expedientes por Serie</h3>
+          <div class="bar-chart" id="chart-series"></div>
+        </div>
+
+        <!-- Por estado (donut) -->
+        <div class="dash-card">
+          <h3>🔄 Distribución por Estado</h3>
+          <div class="donut-wrap">
+            <div class="donut" id="donut-status"></div>
+            <div class="legend" id="legend-status"></div>
+          </div>
+        </div>
+
+        <!-- Alertas de retención -->
+        <div class="dash-card">
+          <h3>📅 Alertas de Retención ISO 15489</h3>
+          <div class="alert-list" id="retention-alerts"></div>
+        </div>
+
+        <!-- Actividad reciente -->
+        <div class="dash-card">
+          <h3>🕐 Actividad Reciente (Audit Trail)</h3>
+          <div class="activity-feed" id="activity-feed"></div>
+        </div>
+      </div>
+
+      <!-- Botones rápidos -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn-primary" onclick="Vault.newRecord()">+ Nuevo expediente</button>
+        <button class="btn-outline" onclick="Vault.importCSV()">📥 Importar Excel/CSV</button>
+        <button class="btn-outline" onclick="Vault.exportAuditTrail()">📋 Exportar Audit Trail</button>
+        <button class="btn-outline" onclick="Views.show('spreadsheet')">📋 Ver todos los expedientes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ▌ VISTA 2: HOJA DE CÁLCULO ──────────────────────────────────────── -->
+  <div id="view-spreadsheet" class="view">
+    <div class="spreadsheet-view">
+      <!-- Toolbar -->
+      <div class="sheet-toolbar">
+        <input type="text" id="sheet-search" placeholder="🔍 Buscar matrícula, nombre..." oninput="Sheet.filter()">
+        <select id="sheet-filter-series" onchange="Sheet.filter()">
+          <option value="">Todas las series</option>
+          <option value="academico">📚 Académico</option>
+          <option value="administrativo">⚙️ Administrativo</option>
+          <option value="investigacion">🔬 Investigación</option>
+          <option value="legal">⚖️ Legal</option>
+          <option value="financiero">💰 Financiero</option>
+        </select>
+        <select id="sheet-filter-status" onchange="Sheet.filter()">
+          <option value="">Todos los estados</option>
+          <option value="activo">🟢 Activo</option>
+          <option value="prestado">🟡 Prestado</option>
+          <option value="transferido">🔵 Transferido</option>
+        </select>
+        <select id="sheet-filter-retention" onchange="Sheet.filter()">
+          <option value="">Cualquier retención</option>
+          <option value="vencido">🔴 Vencida</option>
+          <option value="próximo">⚠️ Próxima</option>
+          <option value="vigente">✅ Vigente</option>
+        </select>
+        <button class="btn-sm" onclick="Vault.newRecord()">+ Nuevo</button>
+        <button class="btn-sm" onclick="Vault.importCSV()">📥 Importar</button>
+        <button class="btn-sm btn-outline" onclick="Sheet.exportXLSX()">⬇ Excel</button>
+        <span class="sheet-count" id="sheet-count">0 expedientes</span>
+      </div>
+
+      <!-- Tabla -->
+      <div class="table-wrap">
+        <table class="records-table">
+          <thead>
+            <tr>
+              <th onclick="Sheet.sort('matricula')">Matrícula <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('nombre')">Nombre <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('apellido1')">Primer Apellido <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('apellido2')">Segundo Apellido <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('series')">Serie <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('location')">Ubicación <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('status')">Estado <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('retention')">Retención <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('accessLevel')">Acceso <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('createdAt')">Captura <span class="sort-icon">↕</span></th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="sheet-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Paginación -->
+      <div class="sheet-pagination" id="sheet-pagination"></div>
+    </div>
+  </div>
+
+  <!-- ▌ VISTA 3: ESCÁNER ───────────────────────────────────────────────── -->
+  <div id="view-scanner" class="view">
+    <div class="main-with-panel">
+      <!-- Panel lateral de expedientes -->
+      <aside id="vault-panel" class="vault-panel" style="display:flex">
+        <div class="panel-header">
+          <h3>🗂️ Expedientes</h3>
+          <div class="panel-actions">
+            <button class="btn-sm" onclick="Vault.newRecord()">+ Nuevo</button>
+            <button class="btn-sm" onclick="Vault.importCSV()">📥 Importar</button>
+            <button class="btn-sm btn-outline" title="Exportar Audit Trail" onclick="Vault.exportAuditTrail()">📋 Audit</button>
+          </div>
+        </div>
+        <div class="filters-section">
+          <select id="filter-series" onchange="Vault.filterBySeries()">
+            <option value="">Todas las series</option>
+            <option value="academico">📚 Académicos</option>
+            <option value="administrativo">⚙️ Administrativos</option>
+            <option value="investigacion">🔬 Investigación</option>
+            <option value="legal">⚖️ Legal</option>
+            <option value="financiero">💰 Financiero</option>
+          </select>
+          <input type="text" id="search-expediente" placeholder="Buscar..." onkeyup="Vault.search(this.value)">
+          <select id="filter-status" onchange="Vault.filterByStatus()">
+            <option value="">Todos</option>
+            <option value="activo">🟢 En bóveda</option>
+            <option value="prestado">🟡 Prestado</option>
+            <option value="transferido">🔵 Transferido</option>
+          </select>
+        </div>
+        <div id="records-list" class="records-list">
+          <div class="empty-state">
+            <p>📋 No hay expedientes registrados</p>
+            <button class="btn-outline" onclick="Vault.newRecord()">Registrar primero</button>
+          </div>
+        </div>
+        <!-- Detalle de expediente -->
+        <div id="record-detail" class="record-detail hidden">
+          <div class="detail-header">
+            <h4 id="detail-number">EXP-XXXX-XXXX</h4>
+            <span id="detail-status" class="status-badge">estado</span>
+          </div>
+          <div class="detail-grid">
+            <div class="field"><label>Matrícula</label><p id="detail-matricula">-</p></div>
+            <div class="field"><label>Serie documental</label><p id="detail-series">-</p></div>
+            <div class="field"><label>Nombre</label><p id="detail-nombre">-</p></div>
+            <div class="field"><label>Primer Apellido</label><p id="detail-apellido1">-</p></div>
+            <div class="field"><label>Segundo Apellido</label><p id="detail-apellido2">-</p></div>
+            <div class="field"><label>Ubicación física</label>
+              <p id="detail-location">-</p>
+              <button class="btn-xs" onclick="VaultMap.show('BOD-01')">🗺️ Mapa</button>
+            </div>
+            <div class="field"><label>Fecha de captura</label><p id="detail-date">-</p></div>
+            <div class="field"><label>Registrado por</label><p id="detail-created-by">-</p></div>
+            <div class="field"><label>Nivel de acceso</label><p id="detail-access-level">-</p></div>
+            <div class="field"><label>Vence retención</label><p id="detail-expiry">-</p></div>
+            <div class="field"><label>Acción disposición</label><p id="detail-retention-action">-</p></div>
+            <div class="field"><label>Versión</label><p id="detail-version">-</p></div>
+            <div class="field" style="grid-column:1/-1"><label>Checksum</label><p id="detail-checksum" style="font-family:monospace;font-size:.72rem">-</p></div>
+          </div>
+          <div class="detail-actions">
+            <button id="btn-loan" class="btn-primary" onclick="Loan.initiate()">📤 Préstamo</button>
+            <button id="btn-move" class="btn-secondary" onclick="Vault.moveRecord()">🔄 Mover</button>
+            <button class="btn-outline" onclick="Vault.changeAccessLevel()">🔐 Acceso</button>
+            <button class="btn-outline" onclick="QRGenerator.printLabel()">🔲 QR</button>
+            <button class="btn-text" onclick="Vault.showHistory()">📜 Audit</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Escáner -->
+      <section class="scanner-section scanner-wrap" id="scanner-area">
+        <div class="camera-container">
+          <div id="reader" class="qr-reader"></div>
+          <div id="camera-placeholder" class="camera-placeholder">
+            <p>📷 Presiona el botón para activar la cámara</p>
+            <button id="btn-start-scan" class="btn-primary" onclick="Scanner.start()">📷 Iniciar escáner</button>
+          </div>
+          <div id="scan-feedback" class="scan-feedback hidden">
+            <span id="feedback-icon">✅</span>
+            <span id="feedback-message">Listo para escanear</span>
+          </div>
+        </div>
+        <div class="scanner-controls">
+          <div class="control-group">
+            <label>📍 Geolocalización</label>
+            <select id="geo-option" onchange="Scanner.toggleGeo(this.value)">
+              <option value="off">Desactivada</option>
+              <option value="on">Activar</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>🏷️ Etiqueta del escaneo</label>
+            <input type="text" id="scan-label" placeholder="Ej: Inventario Bóveda">
+            <select id="label-preset" onchange="document.getElementById('scan-label').value=this.value">
+              <option value="">Predefinidas...</option>
+              <option value="entrada">📥 Entrada</option>
+              <option value="salida">📤 Salida</option>
+              <option value="inventario">📋 Inventario</option>
+            </select>
+          </div>
+          <button id="btn-send" class="btn-primary" onclick="Scanner.sendData()">✅ Enviar datos</button>
+        </div>
+        <div class="scan-results">
+          <div class="results-header">
+            <h4>📊 Últimos registros <span id="scan-count">(0)</span></h4>
+            <div class="results-actions">
+              <button class="btn-sm" onclick="Scanner.exportCSV()">⬇ CSV</button>
+              <button class="btn-sm btn-danger" onclick="Scanner.clearScans()">🗑️ Limpiar</button>
+            </div>
+          </div>
+          <div id="scans-list" class="scans-list"><p class="empty">Los escaneos aparecerán aquí</p></div>
+        </div>
+        <div class="columns-config">
+          <details>
+            <summary>⚙️ Columnas de datos</summary>
+            <div class="columns-grid">
+              <label><input type="checkbox" data-col="text" checked> Texto</label>
+              <label><input type="checkbox" data-col="number"> Número</label>
+              <label><input type="checkbox" data-col="datetime"> Fecha/Hora</label>
+              <label><input type="checkbox" data-col="geo"> Geoloc.</label>
+              <label><input type="checkbox" data-col="label" checked> Etiqueta</label>
+            </div>
+            <button class="btn-sm" onclick="Scanner.addColumn()">+ Agregar columna</button>
+          </details>
+        </div>
+        <div class="scan-options">
+          <details>
+            <summary>⚡ Opciones de escaneo</summary>
+            <label class="toggle"><input type="checkbox" id="opt-continuous" checked><span>Escaneo continuo</span></label>
+            <label class="toggle"><input type="checkbox" id="opt-sound" checked><span>🔊 Sonido al escanear</span></label>
+          </details>
+        </div>
+        <div class="api-config">
+          <details>
+            <summary>🔗 API SheetDB</summary>
+            <div class="form-row">
+              <input type="url" id="sheetdb-url" placeholder="https://sheetdb.io/api/v1/xxxxx">
+              <button class="btn-sm" onclick="Scanner.saveAPIConfig()">Guardar URL</button>
+            </div>
+            <small>Los datos se enviarán a esta hoja de Google Sheets</small>
+          </details>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ── MODALS ─────────────────────────────────────────────────────────── -->
+  <div id="vault-map-modal" class="modal hidden">
+    <div class="modal-content large">
+      <div class="modal-header">
+        <h3>🗺️ Mapa de Bóveda: <span id="map-title">BOD-01</span></h3>
+        <button class="close-btn" onclick="UI.closeModal('vault-map-modal')">&times;</button>
+      </div>
+      <div class="map-container">
+        <div class="location-breadcrumb" id="map-breadcrumb">
+          <button onclick="VaultMap.navigate('BOD-01')">🏢 Bóveda 01</button>
+        </div>
+        <div id="shelf-visual" class="shelf-visual"></div>
+        <div id="box-detail" class="box-detail hidden">
+          <h4>📦 <span id="box-id">CAJ-XXX</span></h4>
+          <p>Ocupación: <span id="box-occupancy">0/20</span></p>
+          <div class="progress"><div id="box-progress" class="progress-fill" style="width:0%"></div></div>
+          <button class="btn-sm" onclick="VaultMap.confirmSelection()">✅ Seleccionar ubicación</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="loan-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📤 Préstamo de Expediente</h3>
+        <button class="close-btn" onclick="UI.closeModal('loan-modal')">&times;</button>
+      </div>
+      <form id="loan-form" onsubmit="Loan.submit(event)">
+        <input type="hidden" id="loan-record-id">
+        <div class="form-group"><label>Expediente</label><p id="loan-record-num" class="form-static">-</p></div>
+        <div class="form-group"><label>Solicitante *</label><input type="text" id="loan-requester" required placeholder="Nombre completo"></div>
+        <div class="form-group">
+          <label>Departamento *</label>
+          <select id="loan-dept" required>
+            <option value="">Seleccionar...</option>
+            <option value="academica">Secretaría Académica</option>
+            <option value="rh">Recursos Humanos</option>
+            <option value="servicio">Servicio Social</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Motivo *</label><textarea id="loan-reason" rows="2" required placeholder="Describa el propósito..."></textarea></div>
+        <div class="form-row">
+          <div class="form-group"><label>Salida</label><input type="date" id="loan-start" required></div>
+          <div class="form-group"><label>Devolver antes de</label><input type="date" id="loan-end" required></div>
+        </div>
+        <div class="form-group">
+          <label>🔲 Confirmar con QR</label>
+          <div class="qr-confirm-area">
+            <button type="button" class="btn-outline" onclick="Scanner.activateForLoan()">📷 Escanear QR</button>
+            <p id="loan-scan-status" class="scan-status">Esperando escaneo...</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="UI.closeModal('loan-modal')">Cancelar</button>
+          <button type="submit" class="btn-primary" id="btn-submit-loan" disabled>✅ Confirmar préstamo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="qr-preview-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🔲 Vista Previa de QR</h3>
+        <button class="close-btn" onclick="UI.closeModal('qr-preview-modal')">&times;</button>
+      </div>
+      <div class="qr-preview-center">
+        <canvas id="qr-canvas"></canvas>
+        <p id="qr-data-preview" class="qr-data-text"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="UI.closeModal('qr-preview-modal')">Cerrar</button>
+        <button class="btn-primary" onclick="QRGenerator.printFromPreview()">🖨️ Imprimir etiqueta</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="notification-area" class="notification-area"></div>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/scanner.js"></script>
+  <script src="js/vault.js"></script>
+  <script src="js/vault-map.js"></script>
+  <script src="js/loan.js"></script>
+  <script src="js/qr-generator.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/sheet.js"></script>
+  <script src="js/views.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
