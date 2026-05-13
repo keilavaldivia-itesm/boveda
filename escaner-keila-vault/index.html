@@ -11,6 +11,15 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <style>
+    /* ── ZONE OCCUPANCY ──────────────────────────────────────────────── */
+    .zone-row { display:flex; flex-direction:column; gap:4px; }
+    .zone-header { display:flex; align-items:center; gap:8px; font-size:.82rem; }
+    .zone-name { flex:1; color:var(--text); font-weight:500; }
+    .zone-pct { font-weight:700; font-size:.82rem; flex-shrink:0; }
+    .zone-count { color:var(--text-muted); font-size:.75rem; flex-shrink:0; }
+    .zone-track { height:8px; background:var(--border); border-radius:4px; overflow:hidden; }
+    .zone-bar { height:100%; border-radius:4px; transition:width .5s; }
+
     /* ── NAV TABS ─────────────────────────────────────────────────────── */
     .app-nav { display:flex; gap:2px; background:var(--border); padding:2px; border-radius:10px; margin:0 16px; }
     .nav-tab {
@@ -333,6 +342,76 @@
     </div>
   </header>
 
+  <!-- ── NUEVO EXPEDIENTE MODAL ──────────────────────────────────────── -->
+  <div id="new-record-modal" class="modal hidden">
+    <div class="modal-content" style="max-width:560px">
+      <div class="modal-header">
+        <h3>📂 Registrar Nuevo Expediente</h3>
+        <button class="close-btn" onclick="UI.closeModal('new-record-modal')">&times;</button>
+      </div>
+      <form id="new-record-form" onsubmit="Vault.submitNewRecord(event)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Matrícula *</label>
+            <input type="text" id="nr-matricula" required placeholder="Ej: A01234567">
+          </div>
+          <div class="form-group">
+            <label>Nombre *</label>
+            <input type="text" id="nr-nombre" required placeholder="Nombre(s)">
+          </div>
+          <div class="form-group">
+            <label>Primer Apellido *</label>
+            <input type="text" id="nr-apellido1" required placeholder="Apellido paterno">
+          </div>
+          <div class="form-group">
+            <label>Segundo Apellido</label>
+            <input type="text" id="nr-apellido2" placeholder="Apellido materno">
+          </div>
+          <div class="form-group">
+            <label>Carrera</label>
+            <input type="text" id="nr-carrera" placeholder="Ej: ITC, LAD, IIS...">
+          </div>
+          <div class="form-group">
+            <label>Año</label>
+            <input type="number" id="nr-anio" min="1990" max="2099" placeholder="Ej: 2024">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Título / Descripción</label>
+            <input type="text" id="nr-titulo" placeholder="Descripción del contenido">
+          </div>
+          <div class="form-group">
+            <label>Serie Documental *</label>
+            <select id="nr-series" required>
+              <option value="">Seleccionar...</option>
+              <option value="academico">📚 Académico (10 años)</option>
+              <option value="administrativo">⚙️ Administrativo (10 años)</option>
+              <option value="investigacion">🔬 Investigación (15 años)</option>
+              <option value="legal">⚖️ Legal (15 años)</option>
+              <option value="financiero">💰 Financiero (7 años)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Nivel de Acceso</label>
+            <select id="nr-access">
+              <option value="restringido">🔒 Restringido</option>
+              <option value="público">🌐 Público</option>
+              <option value="confidencial">🔐 Confidencial</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Ubicación física</label>
+            <input type="text" id="nr-location" placeholder="Ej: A-001-1-001 (Zona-Estante-Nivel-Caja)">
+            <small style="color:var(--text-muted)">Formato: Zona-Estante-Nivel-Caja</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="UI.closeModal('new-record-modal')">Cancelar</button>
+          <button type="submit" class="btn-primary">✅ Registrar Expediente</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ── LOGIN MODAL ────────────────────────────────────────────────────── -->
   <div id="login-modal" class="modal hidden">
     <div class="modal-content">
@@ -368,6 +447,8 @@
         <div class="kpi-card"><span class="kpi-icon">🔵</span><span class="kpi-value" id="kpi-transferidos">0</span><span class="kpi-label">Transferidos</span></div>
         <div class="kpi-card danger"><span class="kpi-icon">⏰</span><span class="kpi-value" id="kpi-vencidos">0</span><span class="kpi-label">Ret. Vencida</span></div>
         <div class="kpi-card warn"><span class="kpi-icon">⚠️</span><span class="kpi-value" id="kpi-proximos">0</span><span class="kpi-label">Ret. Próxima</span></div>
+        <div class="kpi-card danger"><span class="kpi-icon">📤</span><span class="kpi-value" id="kpi-loan-vencidos">0</span><span class="kpi-label">Préstamos Vencidos</span></div>
+        <div class="kpi-card warn"><span class="kpi-icon">⏳</span><span class="kpi-value" id="kpi-loan-proximos">0</span><span class="kpi-label">Préstamos Por Vencer</span></div>
       </div>
 
       <div class="dash-grid">
@@ -396,6 +477,25 @@
         <div class="dash-card">
           <h3>🕐 Actividad Reciente (Audit Trail)</h3>
           <div class="activity-feed" id="activity-feed"></div>
+        </div>
+      </div>
+
+      <div class="dash-grid">
+        <!-- Alertas de préstamos -->
+        <div class="dash-card">
+          <h3>📤 Estado de Préstamos Activos</h3>
+          <div class="alert-list" id="loan-alerts"></div>
+        </div>
+
+        <!-- Ocupación por zona -->
+        <div class="dash-card">
+          <h3>🏢 Ocupación por Zona</h3>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div id="zone-A" class="zone-row"><div class="zone-header"><span class="zone-name">📚 Zona A — Académicos</span><span class="zone-pct">🟢 0%</span><span class="zone-count">0 exp.</span></div><div class="zone-track"><div class="zone-bar" style="width:0%;background:#2563eb"></div></div></div>
+            <div id="zone-B" class="zone-row"><div class="zone-header"><span class="zone-name">⚙️ Zona B — Administrativos</span><span class="zone-pct">🟢 0%</span><span class="zone-count">0 exp.</span></div><div class="zone-track"><div class="zone-bar" style="width:0%;background:#7c3aed"></div></div></div>
+            <div id="zone-C" class="zone-row"><div class="zone-header"><span class="zone-name">⚖️ Zona C — Legal</span><span class="zone-pct">🟢 0%</span><span class="zone-count">0 exp.</span></div><div class="zone-track"><div class="zone-bar" style="width:0%;background:#dc2626"></div></div></div>
+            <div id="zone-D" class="zone-row"><div class="zone-header"><span class="zone-name">💰 Zona D — Financiero</span><span class="zone-pct">🟢 0%</span><span class="zone-count">0 exp.</span></div><div class="zone-track"><div class="zone-bar" style="width:0%;background:#d97706"></div></div></div>
+          </div>
         </div>
       </div>
 
@@ -450,6 +550,9 @@
               <th onclick="Sheet.sort('nombre')">Nombre <span class="sort-icon">↕</span></th>
               <th onclick="Sheet.sort('apellido1')">Primer Apellido <span class="sort-icon">↕</span></th>
               <th onclick="Sheet.sort('apellido2')">Segundo Apellido <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('carrera')">Carrera <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('anio')">Año <span class="sort-icon">↕</span></th>
+              <th onclick="Sheet.sort('titulo')">Título <span class="sort-icon">↕</span></th>
               <th onclick="Sheet.sort('series')">Serie <span class="sort-icon">↕</span></th>
               <th onclick="Sheet.sort('location')">Ubicación <span class="sort-icon">↕</span></th>
               <th onclick="Sheet.sort('status')">Estado <span class="sort-icon">↕</span></th>
@@ -516,6 +619,9 @@
             <div class="field"><label>Nombre</label><p id="detail-nombre">-</p></div>
             <div class="field"><label>Primer Apellido</label><p id="detail-apellido1">-</p></div>
             <div class="field"><label>Segundo Apellido</label><p id="detail-apellido2">-</p></div>
+          <div class="field"><label>Carrera</label><p id="detail-carrera">-</p></div>
+          <div class="field"><label>Año</label><p id="detail-anio">-</p></div>
+          <div class="field" style="grid-column:1/-1"><label>Título / Descripción</label><p id="detail-titulo">-</p></div>
             <div class="field"><label>Ubicación física</label>
               <p id="detail-location">-</p>
               <button class="btn-xs" onclick="VaultMap.show('BOD-01')">🗺️ Mapa</button>
@@ -530,6 +636,7 @@
           </div>
           <div class="detail-actions">
             <button id="btn-loan" class="btn-primary" onclick="Loan.initiate()">📤 Préstamo</button>
+            <button class="btn-secondary" onclick="Vault.currentRecord&&Loan.return(Vault.currentRecord.id)">📥 Devolver</button>
             <button id="btn-move" class="btn-secondary" onclick="Vault.moveRecord()">🔄 Mover</button>
             <button class="btn-outline" onclick="Vault.changeAccessLevel()">🔐 Acceso</button>
             <button class="btn-outline" onclick="QRGenerator.printLabel()">🔲 QR</button>
@@ -689,7 +796,9 @@
       <form id="loan-form" onsubmit="Loan.submit(event)">
         <input type="hidden" id="loan-record-id">
         <div class="form-group"><label>Expediente</label><p id="loan-record-num" class="form-static">-</p></div>
+        <div class="form-group"><label>Expediente</label><p id="loan-record-location" class="form-static" style="font-size:.8rem;color:var(--text-muted)">-</p></div>
         <div class="form-group"><label>Solicitante *</label><input type="text" id="loan-requester" required placeholder="Nombre completo"></div>
+        <div class="form-group"><label>Autorizado por *</label><input type="text" id="loan-authorized-by" required placeholder="Nombre del responsable que autoriza"></div>
         <div class="form-group">
           <label>Departamento *</label>
           <select id="loan-dept" required>
