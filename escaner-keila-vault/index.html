@@ -505,7 +505,8 @@
           <img id="user-picture" src="" alt="" style="width:28px;height:28px;border-radius:50%;display:none;object-fit:cover">
           <span id="user-name">Usuario</span>
           <span id="user-role" class="role-badge">Rol</span>
-          <button class="btn-sm" onclick="Auth.logout()">🚪 Salir</button>
+          <span id="sync-status" style="font-size:.72rem;color:var(--text-muted)" title="Estado de sincronización con Google Sheets">🟢 Sheets</span>
+        <button class="btn-sm" onclick="Auth.logout()">🚪 Salir</button>
         </div>
       </div>
     </header>
@@ -1047,6 +1048,11 @@
           <small style="color:var(--text-muted)">Solo se aceptan correos @tec.mx</small>
         </div>
         <div class="form-group">
+          <label>Nombre (opcional)</label>
+          <input type="text" id="new-user-nombre" placeholder="Nombre completo"
+                 style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.9rem">
+        </div>
+        <div class="form-group">
           <label>Rol *</label>
           <select id="new-user-role"
                   style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.9rem">
@@ -1170,6 +1176,7 @@
   </div><!-- /app-shell -->
 
   <!-- Scripts -->
+  <script src="js/db.js"></script>
   <script src="js/config.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/auth.js"></script>
