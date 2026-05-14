@@ -1,12 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
   try { Auth.init(); }    catch(e) { console.warn('Auth:', e); }
-  try { Vault.init(); }   catch(e) { console.warn('Vault:', e); }
-  try { Loan.init(); }    catch(e) { console.warn('Loan:', e); }
-  try { Scanner.init(); } catch(e) { console.warn('Scanner:', e); }
-  try { Dashboard.render(); } catch(e) { console.warn('Dashboard:', e); }
-  try { Sheet.filtered=[...(Vault.records||[])]; Sheet._applySort(); } catch(e) {}
-  // Show users tab if admin
-  try { UsersView.render(); } catch(e) {}
+
+  // Si no hay sesión, mostrar login como única vista y bloquear contenido
+  if (!Auth.currentUser) {
+    // Ocultar todas las vistas
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    // Mostrar modal de login automáticamente
+    UI.showModal('login-modal');
+  } else {
+    // Usuario ya autenticado - inicializar aplicación completa
+    App.initializeAfterLogin();
+  }
 
   document.querySelectorAll('.modal').forEach(m =>
     m.addEventListener('click', e => { if(e.target===m) m.classList.add('hidden'); })

@@ -3,6 +3,22 @@
  * Dominio restringido: tec.mx
  * Client ID: 536455335373-8b1vhm7d1i5c17ck9av8laatd93ug5as.apps.googleusercontent.com
  */
+
+// Objeto App para inicialización diferida (definido aquí para estar disponible)
+const App = {
+  initializeAfterLogin() {
+    try { Vault.init(); }   catch(e) { console.warn('Vault:', e); }
+    try { Loan.init(); }    catch(e) { console.warn('Loan:', e); }
+    try { Scanner.init(); } catch(e) { console.warn('Scanner:', e); }
+    try { Dashboard.render(); } catch(e) { console.warn('Dashboard:', e); }
+    try { Sheet.filtered=[...(Vault.records||[])]; Sheet._applySort(); } catch(e) {}
+    try { UsersView.render(); } catch(e) {}
+    
+    // Mostrar dashboard por defecto después del login
+    Views.show('dashboard');
+  }
+};
+
 const Auth = {
   currentUser: null,
   GOOGLE_CLIENT_ID: '536455335373-8b1vhm7d1i5c17ck9av8laatd93ug5as.apps.googleusercontent.com',
@@ -36,6 +52,8 @@ const Auth = {
         if (session.exp && new Date(session.exp) > new Date()) {
           this.currentUser = session.user;
           UI.updateAuthUI(true);
+          // Inicializar aplicación si hay sesión válida
+          App.initializeAfterLogin();
           return;
         } else {
           localStorage.removeItem('vault_session');
@@ -79,6 +97,10 @@ const Auth = {
       this._saveSession();
       UI.closeModal('login-modal');
       UI.updateAuthUI(true);
+      
+      // Inicializar la aplicación después del login exitoso
+      App.initializeAfterLogin();
+      
       UI.showNotification('✅ Bienvenido/a, ' + payload.name.split(' ')[0]);
 
     } catch (e) {
@@ -127,6 +149,10 @@ const Auth = {
       this._saveSession();
       UI.closeModal('login-modal');
       UI.updateAuthUI(true);
+      
+      // Inicializar la aplicación después del login exitoso
+      App.initializeAfterLogin();
+      
       UI.showNotification('✅ Sesión demo iniciada como ' + demo.role);
     } else {
       UI.showNotification('❌ Credenciales incorrectas. Demo: demo1234', 'error');
