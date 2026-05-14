@@ -146,10 +146,21 @@ const Auth = {
     this._clearError();
   },
 
-  _showApp() {
+  async _showApp() {
     document.getElementById('login-gate')?.classList.add('hidden');
     document.getElementById('app-shell')?.classList.remove('hidden');
     UI.updateAuthUI(true);
+
+    // Cargar usuarios desde Sheets y sincronizar allowedEmails
+    try {
+      const sheetUsers = await DB.getUsuarios();
+      sheetUsers.forEach(u => {
+        if (u.activo !== '0' && u.email && u.role) {
+          this.allowedEmails[u.email] = u.role;
+        }
+      });
+    } catch(e) { console.warn('No se pudo sincronizar usuarios:', e.message); }
+
     try { Dashboard.render(); } catch {}
     try { UsersView.render(); } catch {}
   },

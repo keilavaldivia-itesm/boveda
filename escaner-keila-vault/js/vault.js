@@ -43,13 +43,80 @@ const Vault = {
   },
 
   init() {
-    const saved = localStorage.getItem('vault_records');
+    // Cargar del cache local primero (rápido)
+    const saved = localStorage.getItem('vault_records_cache');
     if (saved) { try { this.records = JSON.parse(saved); } catch {} }
     this.render();
+    // Luego sincronizar con Sheets (en background)
+    this.syncFromSheets();
+  },
+
+  async syncFromSheets() {
+    try {
+      const rows = await DB.getExpedientes();
+      if (!rows.length && this.records.length) return; // Sheets vacío, conservar local
+      // Convertir filas planas de Sheets a objetos completos
+      this.records = rows.map(r => ({
+        id:        r.id,
+        number:    r.number,
+        matricula: r.matricula,
+        nombre:    r.nombre,
+        apellido1: r.apellido1,
+        apellido2: r.apellido2,
+        carrera:   r.carrera||'',
+        anio:      r.anio||'',
+        titulo:    r.titulo||'',
+        holder:    [r.nombre,r.apellido1,r.apellido2].filter(Boolean).join(' ')||r.matricula,
+        series:    r.series,
+        location:  r.location,
+        status:    r.status||'activo',
+        accessLevel: r.accessLevel||'restringido',
+        createdAt: r.createdAt,
+        createdBy: r.createdBy||'',
+        retention: {
+          years:      Number(r.retentionYears)||10,
+          action:     r.retentionAction||'transferir',
+          basis:      r.retentionBasis||'',
+          expiryDate: r.retentionExpiry||'',
+          status:     'vigente',
+        },
+        checksum:   r.checksum||'',
+        version:    Number(r.version)||1,
+        auditTrail: [],
+        accessLog:  [],
+        qrData:     JSON.stringify({ id:r.id, number:r.number, matricula:r.matricula }),
+      }));
+      this._cacheLocal();
+      this.render();
+      if (typeof Dashboard !== 'undefined') Dashboard.render();
+      if (typeof Sheet !== 'undefined') { Sheet.filtered=[]; Sheet.filter(); }
+    } catch(e) {
+      console.warn('Sync desde Sheets falló, usando cache:', e.message);
+    }
+  },
+
+  _cacheLocal() {
+    localStorage.setItem('vault_records_cache', JSON.stringify(this.records));
   },
 
   save() {
-    localStorage.setItem('vault_records', JSON.stringify(this.records));
+    this._cacheLocal(); // Cache local inmediato
+  },
+
+  async saveToSheets(record) {
+    try {
+      await DB.saveExpediente(record);
+    } catch(e) {
+      UI.showNotification('⚠️ Guardado localmente. Sin conexión a Sheets.', 'error');
+    }
+  },
+
+  async deleteFromSheets(id) {
+    try {
+      await DB.deleteExpediente(id);
+    } catch(e) {
+      console.warn('No se pudo eliminar de Sheets:', e.message);
+    }
   },
 
   // ── Audit Trail ISO 15489 §7 ──────────────────────────────────────────
@@ -145,6 +212,8 @@ const Vault = {
     this.render();
     if (typeof Dashboard !== 'undefined') Dashboard.render();
     if (typeof Sheet !== 'undefined') { Sheet.filtered=[]; Sheet.filter(); }
+    // Guardar en Sheets
+    this.saveToSheets(record);
     UI.closeModal('new-record-modal');
     UI.showNotification('✅ Expediente ' + record.number + ' registrado');
     this.showDetail(record);

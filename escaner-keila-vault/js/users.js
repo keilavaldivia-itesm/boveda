@@ -1,39 +1,54 @@
 /**
- * USERS.JS — Administración de usuarios autorizados
- * Solo accesible para rol admin
+ * USERS.JS — Gestión de usuarios con Google Sheets como backend
  */
 const UsersView = {
-
   filterText: '',
   filterRole: '',
+  users: [], // cache local
 
   render() {
-    // Mostrar/ocultar pestaña según rol
     const tab = document.getElementById('tab-users');
     if (tab) tab.style.display = Auth.isAdmin() ? '' : 'none';
+    if (!Auth.isAdmin()) return;
+    this.loadUsers();
+  },
 
+  async loadUsers() {
+    const tbody = document.getElementById('users-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted)">⏳ Cargando usuarios...</td></tr>';
+
+    try {
+      this.users = await DB.getUsuarios();
+      // Mezclar con admins hardcoded que siempre deben estar
+      const hardcoded = Object.entries(Auth.allowedEmails);
+      hardcoded.forEach(([email, role]) => {
+        if (!this.users.find(u => u.email === email)) {
+          this.users.push({ email, role, nombre: '', activo: '1', _hardcoded: true });
+        }
+      });
+      // Sincronizar allowedEmails con Sheets
+      this.users.forEach(u => { if (u.activo !== '0') Auth.allowedEmails[u.email] = u.role; });
+      this._renderTable();
+    } catch(e) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#dc2626">❌ Error al cargar usuarios. Verifica la conexión.</td></tr>';
+    }
+  },
+
+  _renderTable() {
     const tbody = document.getElementById('users-tbody');
     if (!tbody) return;
 
-    const emails  = Auth.allowedEmails || {};
-    let entries = Object.entries(emails);
+    let entries = this.users.filter(u => u.activo !== '0');
 
-    // Aplicar filtros
-    if (this.filterText) {
-      const q = this.filterText.toLowerCase();
-      entries = entries.filter(([e]) => e.toLowerCase().includes(q));
-    }
-    if (this.filterRole) {
-      entries = entries.filter(([, r]) => r === this.filterRole);
-    }
+    if (this.filterText) entries = entries.filter(u => u.email.toLowerCase().includes(this.filterText.toLowerCase()));
+    if (this.filterRole) entries = entries.filter(u => u.role === this.filterRole);
 
-    // Actualizar contador
     const counter = document.getElementById('users-count');
-    if (counter) counter.textContent = Object.keys(emails).length + ' usuarios · ' + entries.length + ' mostrados';
+    if (counter) counter.textContent = this.users.length + ' usuarios · ' + entries.length + ' mostrados';
 
     if (!entries.length) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted)">
-        ${this.filterText||this.filterRole ? '🔍 Sin resultados para el filtro' : '📋 Sin usuarios registrados'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted)">Sin usuarios que coincidan</td></tr>`;
       return;
     }
 
@@ -42,149 +57,141 @@ const UsersView = {
     const currentEmail = Auth.currentUser?.email || '';
 
     tbody.innerHTML = entries
-      .sort((a,b) => {
-        // Admins primero, luego por correo
-        if (a[1]==='admin' && b[1]!=='admin') return -1;
-        if (a[1]!=='admin' && b[1]==='admin') return 1;
-        return a[0].localeCompare(b[0]);
-      })
-      .map(([email, role]) => {
-        const isMe = email === currentEmail;
-        const initials = email.split('.')[0].slice(0,2).toUpperCase();
-        const avatarColor = role==='admin'?'#dc2626':role==='archivist'?'#2563eb':'#16a34a';
-        return `
-        <tr>
+      .sort((a,b) => { if(a.role==='admin'&&b.role!=='admin') return -1; if(a.role!=='admin'&&b.role==='admin') return 1; return a.email.localeCompare(b.email); })
+      .map(u => {
+        const isMe = u.email === currentEmail;
+        const initials = u.email.split('.')[0].slice(0,2).toUpperCase();
+        const avatarColor = u.role==='admin'?'#dc2626':u.role==='archivist'?'#2563eb':'#16a34a';
+        return `<tr>
           <td>
             <div style="display:flex;align-items:center;gap:10px">
-              <div style="width:32px;height:32px;border-radius:50%;background:${avatarColor};
-                          color:#fff;display:flex;align-items:center;justify-content:center;
-                          font-size:.72rem;font-weight:700;flex-shrink:0">${initials}</div>
+              <div style="width:32px;height:32px;border-radius:50%;background:${avatarColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0">${initials}</div>
               <div>
-                <div style="font-weight:600;font-size:.85rem">${email}</div>
-                ${isMe ? '<div style="font-size:.72rem;color:var(--text-muted)">← sesión actual</div>' : ''}
+                <div style="font-weight:600;font-size:.85rem">${u.email}</div>
+                ${u.nombre?`<div style="font-size:.72rem;color:var(--text-muted)">${u.nombre}</div>`:''}
+                ${isMe?'<div style="font-size:.72rem;color:var(--text-muted)">← sesión actual</div>':''}
               </div>
             </div>
           </td>
-          <td>
-            <span class="role-pill ${roleCls[role]||'role-viewer'}">${roleLabel[role]||role}</span>
-          </td>
-          <td style="color:var(--text-muted);font-size:.78rem">
-            ${role==='admin'?'Acceso total al sistema':role==='archivist'?'Gestión de expedientes y préstamos':'Solo consulta'}
-          </td>
+          <td><span class="role-pill ${roleCls[u.role]||'role-viewer'}">${roleLabel[u.role]||u.role}</span></td>
+          <td style="color:var(--text-muted);font-size:.78rem">${u.role==='admin'?'Acceso total':u.role==='archivist'?'Gestión de expedientes':'Solo consulta'}</td>
           <td>
             <div class="row-actions">
-              <button onclick="UsersView.showEdit('${email}','${role}')" title="Cambiar rol">✏️</button>
-              ${!isMe
-                ? `<button onclick="UsersView.confirmRemove('${email}')" style="color:#dc2626" title="Revocar acceso">🗑</button>`
-                : `<button disabled style="opacity:.3;cursor:default" title="No puedes eliminarte a ti mismo">🗑</button>`}
+              <button onclick="UsersView.showEdit('${u.email}','${u.role}')" title="Cambiar rol">✏️</button>
+              ${!isMe?`<button onclick="UsersView.confirmRemove('${u.email}')" style="color:#dc2626" title="Revocar acceso">🗑</button>`:'<button disabled style="opacity:.3">🗑</button>'}
             </div>
           </td>
         </tr>`;
       }).join('');
   },
 
-  // ── Agregar usuario ────────────────────────────────────────────────
   showAdd() {
-    document.getElementById('user-modal-title').textContent  = '➕ Otorgar Acceso';
-    document.getElementById('user-modal-btn').textContent    = '✅ Otorgar acceso';
-    document.getElementById('new-user-email').value          = '';
-    document.getElementById('new-user-email').disabled       = false;
-    document.getElementById('new-user-role').value           = 'viewer';
-    document.getElementById('user-modal-mode').value         = 'add';
+    document.getElementById('user-modal-title').textContent = '➕ Otorgar Acceso';
+    document.getElementById('user-modal-btn').textContent   = '✅ Otorgar acceso';
+    document.getElementById('new-user-email').value         = '';
+    document.getElementById('new-user-email').disabled      = false;
+    document.getElementById('new-user-nombre').value        = '';
+    document.getElementById('new-user-role').value          = 'viewer';
+    document.getElementById('user-modal-mode').value        = 'add';
     UI.showModal('user-modal');
-    setTimeout(()=>document.getElementById('new-user-email').focus(), 100);
+    setTimeout(() => document.getElementById('new-user-email').focus(), 100);
   },
 
-  // ── Editar rol ────────────────────────────────────────────────────
   showEdit(email, role) {
-    document.getElementById('user-modal-title').textContent  = '✏️ Cambiar Rol';
-    document.getElementById('user-modal-btn').textContent    = '✅ Guardar cambio';
-    document.getElementById('new-user-email').value          = email;
-    document.getElementById('new-user-email').disabled       = true;
-    document.getElementById('new-user-role').value           = role;
-    document.getElementById('user-modal-mode').value         = 'edit';
+    document.getElementById('user-modal-title').textContent = '✏️ Cambiar Rol';
+    document.getElementById('user-modal-btn').textContent   = '✅ Guardar cambio';
+    document.getElementById('new-user-email').value         = email;
+    document.getElementById('new-user-email').disabled      = true;
+    document.getElementById('new-user-nombre').value        = this.users.find(u=>u.email===email)?.nombre||'';
+    document.getElementById('new-user-role').value          = role;
+    document.getElementById('user-modal-mode').value        = 'edit';
     UI.showModal('user-modal');
   },
 
-  // ── Confirmar modal ───────────────────────────────────────────────
-  confirmModal() {
-    const email = document.getElementById('new-user-email').value.trim().toLowerCase();
-    const role  = document.getElementById('new-user-role').value;
-    const mode  = document.getElementById('user-modal-mode').value;
-
+  async confirmModal() {
+    const email  = document.getElementById('new-user-email').value.trim().toLowerCase();
+    const nombre = document.getElementById('new-user-nombre').value.trim();
+    const role   = document.getElementById('new-user-role').value;
+    const mode   = document.getElementById('user-modal-mode').value;
     if (!email) { UI.showNotification('Escribe un correo', 'error'); return; }
 
-    if (mode === 'add') {
-      if (!email.endsWith('@tec.mx')) {
-        UI.showNotification('⛔ Solo correos @tec.mx', 'error'); return;
-      }
-      if (Auth.allowedEmails[email]) {
-        UI.showNotification('⚠️ Este correo ya tiene acceso', 'error'); return;
-      }
-      Auth.addAllowedEmail(email, role);
-    } else {
-      Auth.allowedEmails[email] = role;
-      localStorage.setItem('vault_allowed_emails', JSON.stringify(Auth.allowedEmails));
-      UI.showNotification('✅ Rol actualizado: ' + email);
-    }
+    const btn = document.getElementById('user-modal-btn');
+    btn.disabled = true; btn.textContent = '⏳ Guardando...';
 
-    UI.closeModal('user-modal');
-    this.render();
+    try {
+      if (mode === 'add') {
+        if (!email.endsWith('@tec.mx')) { UI.showNotification('⛔ Solo @tec.mx', 'error'); btn.disabled=false; btn.textContent='✅ Otorgar acceso'; return; }
+        if (this.users.find(u=>u.email===email)) { UI.showNotification('⚠️ Ya tiene acceso', 'error'); btn.disabled=false; btn.textContent='✅ Otorgar acceso'; return; }
+        await DB.addUsuario(email, role, nombre);
+        Auth.allowedEmails[email] = role;
+        UI.showNotification('✅ Acceso otorgado: ' + email);
+      } else {
+        await DB.updateUsuarioRole(email, role);
+        Auth.allowedEmails[email] = role;
+        UI.showNotification('✅ Rol actualizado: ' + email);
+      }
+      UI.closeModal('user-modal');
+      await this.loadUsers();
+    } catch(e) {
+      UI.showNotification('❌ Error al guardar: ' + e.message, 'error');
+      btn.disabled = false;
+      btn.textContent = mode==='add'?'✅ Otorgar acceso':'✅ Guardar cambio';
+    }
   },
 
-  // ── Eliminar con confirmación ─────────────────────────────────────
   confirmRemove(email) {
-    // Mostrar modal de confirmación
     document.getElementById('confirm-remove-email').textContent = email;
     document.getElementById('pending-remove-email').value       = email;
     UI.showModal('confirm-remove-modal');
   },
 
-  executeRemove() {
+  async executeRemove() {
     const email = document.getElementById('pending-remove-email').value;
-    Auth.removeAllowedEmail(email);
-    UI.closeModal('confirm-remove-modal');
-    this.render();
-    UI.showNotification('🗑️ Acceso revocado: ' + email);
+    try {
+      await DB.deleteUsuario(email);
+      delete Auth.allowedEmails[email];
+      UI.closeModal('confirm-remove-modal');
+      UI.showNotification('🗑️ Acceso revocado: ' + email);
+      await this.loadUsers();
+    } catch(e) {
+      UI.showNotification('❌ Error al eliminar: ' + e.message, 'error');
+      UI.closeModal('confirm-remove-modal');
+    }
   },
 
-  // ── Filtros ───────────────────────────────────────────────────────
   applyFilter() {
     this.filterText = document.getElementById('users-search')?.value || '';
     this.filterRole = document.getElementById('users-filter-role')?.value || '';
-    this.render();
+    this._renderTable();
   },
 
-  // ── Exportar lista ────────────────────────────────────────────────
   exportList() {
-    const rows = Object.entries(Auth.allowedEmails||{}).map(([email,role])=>({email,rol:role}));
-    if (!rows.length) { UI.showNotification('Sin usuarios para exportar','error'); return; }
-    const csv = 'email,rol\n' + rows.map(r=>r.email+','+r.rol).join('\n');
+    if (!this.users.length) { UI.showNotification('Sin usuarios','error'); return; }
+    const csv = 'email,rol,nombre\n' + this.users.map(u=>`${u.email},${u.role},${u.nombre||''}`).join('\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-    a.download = 'usuarios_autorizados_'+new Date().toISOString().slice(0,10)+'.csv';
+    a.download = 'usuarios_'+new Date().toISOString().slice(0,10)+'.csv';
     a.click();
     UI.showNotification('✅ Lista exportada');
   },
 
-  // ── Importar lista desde CSV ──────────────────────────────────────
   importList() {
     const input = document.createElement('input');
-    input.type = 'file'; input.accept = '.csv';
-    input.onchange = e => {
+    input.type='file'; input.accept='.csv';
+    input.onchange = async e => {
       const file = e.target.files[0]; if (!file) return;
       const reader = new FileReader();
-      reader.onload = ev => {
+      reader.onload = async ev => {
         const lines = ev.target.result.split('\n').filter(Boolean).slice(1);
         let count = 0;
-        lines.forEach(line => {
-          const [email, role] = line.split(',').map(s=>s.trim().toLowerCase());
+        for (const line of lines) {
+          const [email, role, nombre] = line.split(',').map(s=>s.trim().toLowerCase());
           if (email && email.endsWith('@tec.mx') && ['admin','archivist','viewer'].includes(role)) {
-            Auth.allowedEmails[email] = role; count++;
+            try { await DB.addUsuario(email, role, nombre||''); Auth.allowedEmails[email]=role; count++; }
+            catch {}
           }
-        });
-        localStorage.setItem('vault_allowed_emails', JSON.stringify(Auth.allowedEmails));
-        this.render();
+        }
+        await this.loadUsers();
         UI.showNotification('✅ '+count+' usuarios importados');
       };
       reader.readAsText(file);

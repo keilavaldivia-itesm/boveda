@@ -8,6 +8,19 @@ const Loan = {
   init() {
     const saved = localStorage.getItem('vault_loans');
     if (saved) { try { this.loans = JSON.parse(saved); } catch {} }
+    // Sync préstamos desde Sheets
+    this.syncFromSheets();
+  },
+
+  async syncFromSheets() {
+    try {
+      const rows = await DB.getPrestamos();
+      if (rows.length) {
+        this.loans = rows;
+        localStorage.setItem('vault_loans', JSON.stringify(this.loans));
+        if (typeof Dashboard !== 'undefined') Dashboard.render();
+      }
+    } catch(e) { console.warn('Sync préstamos falló:', e.message); }
     const s = document.getElementById('loan-start');
     const e = document.getElementById('loan-end');
     if (s) s.value = new Date().toISOString().slice(0,10);
@@ -30,7 +43,7 @@ const Loan = {
     UI.showModal('loan-modal');
   },
 
-  submit(event) {
+  async submit(event) {
     event.preventDefault();
     const recordId = document.getElementById('loan-record-id').value;
     const record = Vault.records.find(r => r.id===recordId);
@@ -55,6 +68,8 @@ const Loan = {
 
     this.loans.push(loan);
     localStorage.setItem('vault_loans', JSON.stringify(this.loans));
+    // Guardar en Sheets
+    try { await DB.savePrestamo(loan); } catch(e) { console.warn('Préstamo no guardado en Sheets:', e.message); }
 
     record.status = 'prestado';
     Vault._audit(record,'PRESTAMO',
@@ -70,7 +85,7 @@ const Loan = {
     this.init();
   },
 
-  return(recordId) {
+  async return(recordId) {
     const record = Vault.records.find(r => r.id===recordId);
     if (!record) { UI.showNotification('Expediente no encontrado','error'); return; }
 
@@ -87,6 +102,9 @@ const Loan = {
     record.version = (record.version||1)+1;
     Vault._audit(record,'DEVOLUCION','Condición: '+(cond?'bueno':'dañado'));
     Vault.save();
+    // Actualizar en Sheets
+    try { await DB.updateExpediente(record.id, { status: 'activo', version: record.version }); } catch {}
+    try { if(activeLoan) await DB.updatePrestamo(activeLoan.id, { status:'devuelto', returnedAt: activeLoan.returnedAt }); } catch {}
     Vault.showDetail(record);
     Vault.render();
     if (typeof Dashboard!=='undefined') Dashboard.render();
