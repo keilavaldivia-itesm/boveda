@@ -67,6 +67,84 @@
     .zone-track { height:8px; background:var(--border); border-radius:4px; overflow:hidden; }
     .zone-bar { height:100%; border-radius:4px; transition:width .5s; }
 
+    /* ══ LOGIN GATE ═══════════════════════════════════════════════════ */
+    .login-gate {
+      position: fixed; inset: 0; z-index: 9999;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0f2340 50%, #1a1a2e 100%);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .login-gate.hidden { display: none; }
+
+    .login-card {
+      background: rgba(255,255,255,0.97);
+      border-radius: 20px;
+      padding: 44px 40px;
+      width: 100%; max-width: 400px;
+      display: flex; flex-direction: column; align-items: center; gap: 18px;
+      box-shadow: 0 25px 60px rgba(0,0,0,.4);
+    }
+
+    .login-logo {
+      font-size: 3rem; line-height: 1;
+      background: linear-gradient(135deg, #1e3a5f, #2563eb);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .login-title {
+      font-size: 1.5rem; font-weight: 800; color: #1e3a5f;
+      margin: 0; text-align: center;
+    }
+    .login-subtitle {
+      font-size: .82rem; color: #64748b; text-align: center;
+      line-height: 1.6; margin: 0;
+    }
+
+    .login-form {
+      width: 100%; display: flex; flex-direction: column; gap: 10px;
+    }
+    .login-form input {
+      width: 100%; padding: 10px 14px;
+      border: 1.5px solid #e2e8f0; border-radius: 8px;
+      font-size: .9rem; transition: border-color .2s;
+      box-sizing: border-box;
+    }
+    .login-form input:focus { outline: none; border-color: #2563eb; }
+
+    .btn-demo {
+      width: 100%; padding: 10px; background: #f8fafc;
+      border: 1.5px solid #e2e8f0; border-radius: 8px;
+      font-size: .85rem; font-weight: 600; color: #475569;
+      cursor: pointer; transition: all .2s;
+    }
+    .btn-demo:hover { background: #f1f5f9; border-color: #2563eb; color: #2563eb; }
+
+    .login-divider {
+      width: 100%; text-align: center; border-top: 1px solid #e2e8f0;
+      line-height: 0; margin: 2px 0;
+    }
+    .login-divider span {
+      background: white; padding: 0 12px;
+      font-size: .75rem; color: #94a3b8;
+    }
+
+    .login-error {
+      width: 100%; background: #fef2f2; color: #dc2626;
+      border: 1px solid #fecaca; border-radius: 8px;
+      padding: 10px 14px; font-size: .83rem; text-align: center;
+    }
+
+    .login-footer {
+      font-size: .74rem; color: #94a3b8; text-align: center;
+      margin: 0; line-height: 1.8;
+    }
+
+    /* App shell hidden until auth */
+    .app-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .app-shell.hidden { display: none; }
+    .app-shell > .view,
+    .app-shell > .main-with-panel { flex: 1; overflow: hidden; }
+
+    /* ══ NAV TABS ═══════════════════════════════════════════════════════ */
     /* ── NAV TABS ─────────────────────────────────────────────────────── */
     .app-nav { display:flex; gap:2px; background:var(--border); padding:2px; border-radius:10px; margin:0 16px; }
     .nav-tab {
@@ -368,28 +446,69 @@
   </style>
 </head>
 <body>
-  <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
-  <header class="app-header">
-    <div class="header-left">
-      <h1 style="font-size:1rem;white-space:nowrap">🗄️ Escáner Keila <span class="badge-vault">Bóveda</span></h1>
-    </div>
-    <nav class="header-nav app-nav">
-      <button class="nav-tab active" onclick="Views.show('dashboard')">📊 Dashboard</button>
-      <button class="nav-tab" onclick="Views.show('spreadsheet')">📋 Expedientes</button>
-      <button class="nav-tab" onclick="Views.show('scanner')">📷 Escáner</button>
-      <button class="nav-tab" onclick="Views.show('mapview')">🗺️ Mapa</button>
-      <button class="nav-tab" id="tab-users" onclick="Views.show('users')" style="display:none">👥 Usuarios</button>
-    </nav>
-    <div class="header-right">
-      <button id="btn-login" class="btn-outline" onclick="UI.showModal('login-modal')">🔐 Ingresar</button>
-      <div id="user-badge" class="user-badge hidden">
-        <img id="user-picture" src="" alt="" style="width:28px;height:28px;border-radius:50%;display:none;object-fit:cover">
-        <span id="user-name">Usuario</span>
-        <span id="user-role" class="role-badge">Rol</span>
-        <button class="btn-sm" onclick="Auth.logout()">🚪</button>
+  <!-- ══ LOGIN GATE — cubre toda la app hasta autenticar ══════════════ -->
+  <div id="login-gate" class="login-gate">
+    <div class="login-card">
+      <div class="login-logo">🗄️</div>
+      <h1 class="login-title">Bóveda UniArchive</h1>
+      <p class="login-subtitle">Sistema de Gestión de Expedientes<br>Tecnológico de Monterrey</p>
+
+      <!-- Google Sign-In -->
+      <div id="g_id_onload"
+           data-client_id="536455335373-8b1vhm7d1i5c17ck9av8laatd93ug5as.apps.googleusercontent.com"
+           data-callback="onGoogleSignIn"
+           data-auto_prompt="false">
       </div>
+      <div class="g_id_signin"
+           data-type="standard"
+           data-size="large"
+           data-theme="filled_blue"
+           data-text="signin_with"
+           data-shape="rectangular"
+           data-logo_alignment="left"
+           data-width="340">
+      </div>
+
+      <div class="login-divider"><span>o acceso demo</span></div>
+
+      <form id="login-form" onsubmit="Auth.handleLogin(event)" class="login-form">
+        <input type="email" id="login-email" placeholder="correo@tec.mx" autocomplete="email">
+        <input type="password" id="login-password" placeholder="Contraseña (demo: demo1234)">
+        <button type="submit" class="btn-demo">Entrar en modo demo</button>
+      </form>
+
+      <div id="login-error" class="login-error hidden"></div>
+
+      <p class="login-footer">
+        🔒 Acceso restringido · Solo @tec.mx<br>
+        <small>ISO 15489:2016 · UniArchive v2.0</small>
+      </p>
     </div>
-  </header>
+  </div>
+
+  <!-- ══ APP — oculta hasta que el usuario se autentique ══════════════ -->
+  <div id="app-shell" class="app-shell hidden">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <h1 style="font-size:1rem;white-space:nowrap">🗄️ Bóveda <span class="badge-vault">UniArchive</span></h1>
+      </div>
+      <nav class="header-nav app-nav">
+        <button class="nav-tab active" onclick="Views.show('dashboard')">📊 Dashboard</button>
+        <button class="nav-tab" onclick="Views.show('spreadsheet')">📋 Expedientes</button>
+        <button class="nav-tab" onclick="Views.show('scanner')">📷 Escáner</button>
+        <button class="nav-tab" onclick="Views.show('mapview')">🗺️ Mapa</button>
+        <button class="nav-tab" id="tab-users" onclick="Views.show('users')" style="display:none">👥 Usuarios</button>
+      </nav>
+      <div class="header-right">
+        <div id="user-badge" class="user-badge">
+          <img id="user-picture" src="" alt="" style="width:28px;height:28px;border-radius:50%;display:none;object-fit:cover">
+          <span id="user-name">Usuario</span>
+          <span id="user-role" class="role-badge">Rol</span>
+          <button class="btn-sm" onclick="Auth.logout()">🚪 Salir</button>
+        </div>
+      </div>
+    </header>
 
   <!-- ── NUEVO EXPEDIENTE MODAL ──────────────────────────────────────── -->
   <div id="new-record-modal" class="modal hidden">
@@ -478,7 +597,7 @@
         <!-- Google Identity Services rendered button -->
         <div id="g_id_onload"
              data-client_id="536455335373-8b1vhm7d1i5c17ck9av8laatd93ug5as.apps.googleusercontent.com"
-             data-callback="Auth.handleGoogleCredential"
+             data-callback="onGoogleSignIn"
              data-auto_prompt="false">
         </div>
         <div class="g_id_signin"
@@ -1047,6 +1166,8 @@
   </div>
 
   <div id="notification-area" class="notification-area"></div>
+
+  </div><!-- /app-shell -->
 
   <!-- Scripts -->
   <script src="js/config.js"></script>
