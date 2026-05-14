@@ -505,7 +505,7 @@
           <img id="user-picture" src="" alt="" style="width:28px;height:28px;border-radius:50%;display:none;object-fit:cover">
           <span id="user-name">Usuario</span>
           <span id="user-role" class="role-badge">Rol</span>
-          <span id="sync-status" style="font-size:.72rem;color:var(--text-muted)" title="Estado de sincronización con Google Sheets">🟢 Sheets</span>
+          <span id="sync-status" onclick="AutoSync.manualSync()" style="font-size:.72rem;color:var(--text-muted);cursor:pointer;padding:3px 7px;border-radius:5px;border:1px solid var(--border)" title="Clic para sincronizar ahora">🟢 Sheets</span>
         <button class="btn-sm" onclick="Auth.logout()">🚪 Salir</button>
         </div>
       </div>
