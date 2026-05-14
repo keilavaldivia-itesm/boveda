@@ -37,21 +37,28 @@ const UI = {
   },
 
   updateAuthUI(loggedIn) {
-    const btnLogin = document.getElementById('btn-login');
-    const userBadge = document.getElementById('user-badge');
-    const vaultBtn = document.getElementById('btn-vault-toggle');
+    if (!loggedIn || !Auth.currentUser) return;
 
-    if (loggedIn && Auth.currentUser) {
-      btnLogin.classList.add('hidden');
-      userBadge.classList.remove('hidden');
-      document.getElementById('user-name').textContent = Auth.currentUser.name;
-      document.getElementById('user-role').textContent = Auth.currentUser.role;
-      vaultBtn.classList.remove('hidden');
-    } else {
-      btnLogin.classList.remove('hidden');
-      userBadge.classList.add('hidden');
-      vaultBtn.classList.add('hidden');
+    // Nombre y rol
+    const nameEl = document.getElementById('user-name');
+    const roleEl = document.getElementById('user-role');
+    if (nameEl) nameEl.textContent = Auth.currentUser.name;
+    if (roleEl) roleEl.textContent = Auth.currentUser.role;
+
+    // Foto de perfil Google
+    const pic = document.getElementById('user-picture');
+    if (pic) {
+      if (Auth.currentUser.picture) {
+        pic.src = Auth.currentUser.picture;
+        pic.style.display = 'inline-block';
+      } else {
+        pic.style.display = 'none';
+      }
     }
+
+    // Pestaña de usuarios solo para admins
+    const tabUsers = document.getElementById('tab-users');
+    if (tabUsers) tabUsers.style.display = Auth.isAdmin() ? '' : 'none';
   }
 };
 
