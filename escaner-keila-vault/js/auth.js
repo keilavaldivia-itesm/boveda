@@ -136,6 +136,8 @@ const Auth = {
     }
     this.currentUser = null;
     localStorage.removeItem('boveda_itesm_session');
+    // Detener auto-sync
+    try { AutoSync.stop(); } catch {}
     this._showGate();
   },
 
@@ -163,6 +165,9 @@ const Auth = {
 
     try { Dashboard.render(); } catch {}
     try { UsersView.render(); } catch {}
+
+    // Arrancar auto-sync
+    try { AutoSync.start(); } catch {}
   },
 
   _showError(msg) {
