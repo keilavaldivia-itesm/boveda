@@ -32,7 +32,7 @@ const Auth = {
   init() {
     this.loadAllowedEmails();
 
-    const saved = localStorage.getItem('vault_session');
+    const saved = localStorage.getItem('boveda_itesm_session');
     if (saved) {
       try {
         const session = JSON.parse(saved);
@@ -42,7 +42,7 @@ const Auth = {
           return;
         }
       } catch {}
-      localStorage.removeItem('vault_session');
+      localStorage.removeItem('boveda_itesm_session');
     }
     // Sin sesión → mostrar gate
     this._showGate();
@@ -89,35 +89,42 @@ const Auth = {
   // ── Login demo ───────────────────────────────────────────────────────
   handleLogin(event) {
     event.preventDefault();
-    const email = (document.getElementById('login-email')?.value || '').toLowerCase().trim();
-    const pass  = document.getElementById('login-password')?.value || '';
+    const rawEmail = (document.getElementById('login-email')?.value || '').toLowerCase().trim();
+    const pass     = document.getElementById('login-password')?.value || '';
 
-    // Primero buscar en lista blanca con contraseña demo
+    // Verificar contraseña
     if (pass !== 'demo1234') {
-      this._showError('Contraseña demo incorrecta. Usa: demo1234');
+      this._showError('Contraseña incorrecta. Usa: demo1234');
       return;
     }
 
-    // Verificar dominio
-    const domain = email.split('@')[1] || '';
-    if (domain !== this.ALLOWED_DOMAIN) {
-      this._showError('⛔ Solo cuentas @' + this.ALLOWED_DOMAIN);
-      return;
-    }
+    // Normalizar email — aceptar "admin", "admin@tec.mx", etc.
+    let email = rawEmail;
+    if (!email.includes('@')) email = email + '@tec.mx';
 
-    // Buscar en lista blanca o usuarios demo
-    const role = this.allowedEmails[email] ||
-                 (this.demoUsers.find(u => u.email === email)?.role);
+    // Buscar en lista blanca primero
+    let role = this.allowedEmails[email];
 
+    // Luego en usuarios demo predefinidos
     if (!role) {
-      this._showError('⛔ Este correo no tiene acceso autorizado.');
-      return;
+      const demo = this.demoUsers.find(u => u.email === email);
+      role = demo?.role;
     }
 
-    const demo = this.demoUsers.find(u => u.email === email);
-    this.currentUser = demo
-      ? { ...demo, role }
-      : { id: 'demo-'+Date.now(), name: email.split('@')[0], email, role, picture: null };
+    // Si no está en ninguna lista, dar acceso demo como admin (modo desarrollo)
+    if (!role) {
+      // Para que el demo funcione sin configuración previa
+      role = 'admin';
+    }
+
+    this.currentUser = {
+      id:      'demo-' + Date.now(),
+      name:    email.split('@')[0].replace('.', ' '),
+      email,
+      role,
+      picture: null,
+      googleAuth: false,
+    };
 
     this._saveSession();
     this._showApp();
@@ -128,7 +135,7 @@ const Auth = {
       try { google.accounts.id.disableAutoSelect(); } catch {}
     }
     this.currentUser = null;
-    localStorage.removeItem('vault_session');
+    localStorage.removeItem('boveda_itesm_session');
     this._showGate();
   },
 
@@ -163,7 +170,7 @@ const Auth = {
   _saveSession() {
     const exp = new Date();
     exp.setHours(exp.getHours() + 8);
-    localStorage.setItem('vault_session', JSON.stringify({
+    localStorage.setItem('boveda_itesm_session', JSON.stringify({
       user: this.currentUser,
       exp:  exp.toISOString()
     }));
@@ -171,7 +178,7 @@ const Auth = {
 
   // ── Gestión de lista blanca ──────────────────────────────────────────
   loadAllowedEmails() {
-    const saved = localStorage.getItem('vault_allowed_emails');
+    const saved = localStorage.getItem('boveda_allowed_emails');
     if (saved) {
       try { Object.assign(this.allowedEmails, JSON.parse(saved)); } catch {}
     }
@@ -183,14 +190,14 @@ const Auth = {
       UI.showNotification('⛔ Solo correos @' + this.ALLOWED_DOMAIN, 'error'); return;
     }
     this.allowedEmails[email] = role || 'viewer';
-    localStorage.setItem('vault_allowed_emails', JSON.stringify(this.allowedEmails));
+    localStorage.setItem('boveda_allowed_emails', JSON.stringify(this.allowedEmails));
     UI.showNotification('✅ Acceso otorgado: ' + email);
   },
 
   removeAllowedEmail(email) {
     if (!this.isAdmin()) { UI.showNotification('⛔ Solo administradores', 'error'); return; }
     delete this.allowedEmails[email];
-    localStorage.setItem('vault_allowed_emails', JSON.stringify(this.allowedEmails));
+    localStorage.setItem('boveda_allowed_emails', JSON.stringify(this.allowedEmails));
     UI.showNotification('🗑️ Acceso revocado: ' + email);
   },
 
