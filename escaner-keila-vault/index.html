@@ -450,7 +450,7 @@
   <div id="login-gate" class="login-gate">
     <div class="login-card">
       <div class="login-logo">🗄️</div>
-      <h1 class="login-title">Bóveda UniArchive</h1>
+      <h1 class="login-title">Bóveda ITESM Campus Chihuahua-Keila</h1>
       <p class="login-subtitle">Sistema de Gestión de Expedientes<br>Tecnológico de Monterrey</p>
 
       <!-- Google Sign-In -->
@@ -472,8 +472,8 @@
       <div class="login-divider"><span>o acceso demo</span></div>
 
       <form id="login-form" onsubmit="Auth.handleLogin(event)" class="login-form">
-        <input type="email" id="login-email" placeholder="correo@tec.mx" autocomplete="email">
-        <input type="password" id="login-password" placeholder="Contraseña (demo: demo1234)">
+        <input type="email" id="login-email" placeholder="correo@tec.mx" value="admin@tec.mx" autocomplete="email">
+        <input type="password" id="login-password" placeholder="demo1234">
         <button type="submit" class="btn-demo">Entrar en modo demo</button>
       </form>
 
@@ -481,7 +481,7 @@
 
       <p class="login-footer">
         🔒 Acceso restringido · Solo @tec.mx<br>
-        <small>ISO 15489:2016 · UniArchive v2.0</small>
+        <small>ISO 15489:2016 · Bóveda ITESM · Campus Chihuahua</small>
       </p>
     </div>
   </div>
@@ -491,7 +491,7 @@
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
-        <h1 style="font-size:1rem;white-space:nowrap">🗄️ Bóveda <span class="badge-vault">UniArchive</span></h1>
+        <h1 style="font-size:1rem;white-space:nowrap">🗄️ Bóveda <span class="badge-vault">ITESM Chihuahua</span></h1>
       </div>
       <nav class="header-nav app-nav">
         <button class="nav-tab active" onclick="Views.show('dashboard')">📊 Dashboard</button>
@@ -584,7 +584,7 @@
   <div id="login-modal" class="modal hidden">
     <div class="modal-content" style="max-width:400px">
       <div class="modal-header">
-        <h3>🔐 Acceso Bóveda UniArchive</h3>
+        <h3>🔐 Acceso Bóveda ITESM Campus Chihuahua-Keila</h3>
         <button class="close-btn" onclick="UI.closeModal('login-modal')">&times;</button>
       </div>
 
