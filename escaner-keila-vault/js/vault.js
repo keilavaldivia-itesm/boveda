@@ -79,12 +79,14 @@ const Vault = {
       if (!rows.length && this.records.length) return;
 
       // Mapeo flexible — acepta columnas con cualquier capitalización/acento
+      console.log('📥 Filas recibidas de Sheets:', rows.length);
+      if (rows.length) console.log('📋 Columnas disponibles:', Object.keys(rows[0]).join(', '));
+
       this.records = rows
         .filter(r => {
-          // Necesita al menos matrícula o número para ser válido
-          const mat = this._field(r,'matricula','matrícula','id_alumno','no_control');
-          const num = this._field(r,'number','numero','expediente','no_expediente');
-          return mat || num;
+          // Filtrar filas completamente vacías
+          const vals = Object.values(r).filter(v => v && String(v).trim());
+          return vals.length > 0;
         })
         .map(r => {
           const matricula = this._field(r,'matricula','matrícula','id_alumno','no_control');

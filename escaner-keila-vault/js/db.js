@@ -11,7 +11,8 @@ const DB = {
   // ── GET ───────────────────────────────────────────────────────────────
   async get(sheet) {
     try {
-      const res = await fetch(`${this.BASE}?sheet=${sheet}`);
+      // limit=1000000 para traer todos los registros sin paginación
+      const res = await fetch(`${this.BASE}?sheet=${sheet}&limit=1000000`);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       this._cache[sheet] = data;
@@ -107,7 +108,13 @@ const DB = {
 
   // EXPEDIENTES
   async getExpedientes() {
-    return this.get('expedientes');
+    const rows = await this.get('expedientes');
+    // Debug: mostrar las columnas que llegan de Sheets (solo primera vez)
+    if (rows.length && !this._loggedCols) {
+      console.log('📊 Columnas en Sheets expedientes:', Object.keys(rows[0]));
+      this._loggedCols = true;
+    }
+    return rows;
   },
 
   async saveExpediente(record) {
