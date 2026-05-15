@@ -51,45 +51,88 @@ const Vault = {
     this.syncFromSheets();
   },
 
+  // Normalizar clave de columna (quita acentos, espacios, mayúsculas)
+  _normalizeKey(k) {
+    return (k||'').toLowerCase().trim()
+      .replace(/\s+/g,'_')
+      .replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i')
+      .replace(/ó/g,'o').replace(/ú/g,'u').replace(/ñ/g,'n');
+  },
+
+  // Leer campo con múltiples nombres posibles
+  _field(r, ...keys) {
+    for (const k of keys) {
+      const nk = this._normalizeKey(k);
+      // Buscar en las claves normalizadas del objeto
+      for (const rk of Object.keys(r)) {
+        if (this._normalizeKey(rk) === nk && r[rk] !== '' && r[rk] !== undefined) {
+          return String(r[rk]).trim();
+        }
+      }
+    }
+    return '';
+  },
+
   async syncFromSheets() {
     try {
       const rows = await DB.getExpedientes();
-      if (!rows.length && this.records.length) return; // Sheets vacío, conservar local
-      // Convertir filas planas de Sheets a objetos completos
-      this.records = rows.map(r => ({
-        id:        r.id,
-        number:    r.number,
-        matricula: r.matricula,
-        nombre:    r.nombre,
-        apellido1: r.apellido1,
-        apellido2: r.apellido2,
-        carrera:   r.carrera||'',
-        anio:      r.anio||'',
-        titulo:    r.titulo||'',
-        holder:    [r.nombre,r.apellido1,r.apellido2].filter(Boolean).join(' ')||r.matricula,
-        series:    r.series,
-        location:  r.location,
-        status:    r.status||'activo',
-        accessLevel: r.accessLevel||'restringido',
-        createdAt: r.createdAt,
-        createdBy: r.createdBy||'',
-        retention: {
-          years:      Number(r.retentionYears)||10,
-          action:     r.retentionAction||'transferir',
-          basis:      r.retentionBasis||'',
-          expiryDate: r.retentionExpiry||'',
-          status:     'vigente',
-        },
-        checksum:   r.checksum||'',
-        version:    Number(r.version)||1,
-        auditTrail: [],
-        accessLog:  [],
-        qrData:     JSON.stringify({ id:r.id, number:r.number, matricula:r.matricula }),
-      }));
+      if (!rows.length && this.records.length) return;
+
+      // Mapeo flexible — acepta columnas con cualquier capitalización/acento
+      this.records = rows
+        .filter(r => {
+          // Necesita al menos matrícula o número para ser válido
+          const mat = this._field(r,'matricula','matrícula','id_alumno','no_control');
+          const num = this._field(r,'number','numero','expediente','no_expediente');
+          return mat || num;
+        })
+        .map(r => {
+          const matricula = this._field(r,'matricula','matrícula','id_alumno','no_control');
+          const nombre    = this._field(r,'nombre','name','nombres');
+          const apellido1 = this._field(r,'apellido1','primer_apellido','apellido_paterno','apellido');
+          const apellido2 = this._field(r,'apellido2','segundo_apellido','apellido_materno');
+          const series    = this._field(r,'series','serie','tipo','categoria') || 'academico';
+          const location  = this._field(r,'location','ubicacion','ubicación','caja','lugar');
+          const status    = this._field(r,'status','estado','estatus') || 'activo';
+          const id        = this._field(r,'id') || Utils.uuid();
+          const number    = this._field(r,'number','numero','expediente','no_expediente') ||
+                            'EXP-'+new Date().getFullYear()+'-'+String(this.records.length+1).padStart(6,'0');
+
+          const retYears  = Number(this._field(r,'retentionyears','retencion_años','años_retencion')) || 10;
+          const retExpiry = this._field(r,'retentionexpiry','fecha_vencimiento','vencimiento_retencion');
+
+          return {
+            id, number, matricula, nombre, apellido1, apellido2,
+            carrera:    this._field(r,'carrera','programa','programa_academico'),
+            anio:       this._field(r,'anio','año','year','generacion'),
+            titulo:     this._field(r,'titulo','título','descripcion','descripción','contenido'),
+            holder:     [nombre,apellido1,apellido2].filter(Boolean).join(' ') || matricula,
+            series:     series.toLowerCase(),
+            location,
+            status:     status.toLowerCase(),
+            accessLevel:this._field(r,'accesslevel','acceso','nivel_acceso') || 'restringido',
+            createdAt:  this._field(r,'createdat','fecha_captura','fecha','fecha_registro') || new Date().toISOString(),
+            createdBy:  this._field(r,'createdby','capturado_por','usuario'),
+            retention: {
+              years:      retYears,
+              action:     this._field(r,'retentionaction','accion_disposicion') || 'transferir',
+              basis:      this._field(r,'retentionbasis','base_legal') || '',
+              expiryDate: retExpiry || '',
+              status:     'vigente',
+            },
+            checksum:   this._field(r,'checksum') || '',
+            version:    Number(this._field(r,'version')) || 1,
+            auditTrail: [],
+            accessLog:  [],
+            qrData:     JSON.stringify({ id, number, matricula }),
+          };
+        });
+
       this._cacheLocal();
       this.render();
       if (typeof Dashboard !== 'undefined') Dashboard.render();
       if (typeof Sheet !== 'undefined') { Sheet.filtered=[]; Sheet.filter(); }
+      console.log('✅ Sync: '+this.records.length+' expedientes desde Sheets');
     } catch(e) {
       console.warn('Sync desde Sheets falló, usando cache:', e.message);
     }
