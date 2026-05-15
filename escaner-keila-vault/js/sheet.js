@@ -81,7 +81,13 @@ const Sheet = {
           <td class="cell-muted">${r.anio||''}</td>
           <td contenteditable="true" onblur="Sheet.saveCell('${r.id}','titulo',this)" style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.titulo||''}</td>
           <td contenteditable="true" onblur="Sheet.saveCell('${r.id}','series',this)">${r.series||''}</td>
-          <td contenteditable="true" onblur="Sheet.saveCell('${r.id}','location',this)">${r.location||''}</td>
+          <td>
+            <span class="location-link" onclick="Sheet.openMap(event,'${r.location||''}','${r.id}')"
+                  title="Ver en mapa: ${r.location||''}"
+                  style="cursor:pointer;color:var(--primary);text-decoration:underline dotted;font-size:.83rem">
+              📍 ${r.location||'—'}
+            </span>
+          </td>
           <td>${statusBadge[r.status]||r.status}</td>
           <td>${retChip(r)}</td>
           <td>${accIcon[r.accessLevel]||'🔒'} ${r.accessLevel||'restringido'}</td>
@@ -162,6 +168,32 @@ const Sheet = {
     if (p<1||p>pages) return;
     this.page=p; this.render();
     document.querySelector('.table-wrap')?.scrollTo(0,0);
+  },
+
+  openMap(e, location, recordId) {
+    e.stopPropagation();
+    if (!location) return;
+
+    // Ir a la pestaña Mapa
+    Views.show('mapview');
+
+    // Esperar a que el mapa renderice, luego resaltar la ubicación
+    setTimeout(() => {
+      MapView.selectedLocation = location;
+      MapView.render();
+
+      // Hacer scroll al nodo del árbol
+      setTimeout(() => {
+        const nodes = document.querySelectorAll('.tree-selected-loc');
+        if (nodes[0]) nodes[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Mostrar info del expediente en el panel derecho
+        if (recordId) {
+          const record = Vault.records.find(r => r.id === recordId);
+          if (record) MapView.renderInfoPanel({ type: 'record', record });
+        }
+      }, 150);
+    }, 100);
   },
 
   exportXLSX() {
