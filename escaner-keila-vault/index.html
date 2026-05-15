@@ -67,6 +67,17 @@
     .zone-track { height:8px; background:var(--border); border-radius:4px; overflow:hidden; }
     .zone-bar { height:100%; border-radius:4px; transition:width .5s; }
 
+    /* ── LOCATION LINK ───────────────────────────────────────────────── */
+    .location-link {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 6px; border-radius: 5px;
+      transition: background .15s;
+    }
+    .location-link:hover {
+      background: rgba(37,99,235,.1);
+      text-decoration: underline !important;
+    }
+
     /* ══ LOGIN GATE ═══════════════════════════════════════════════════ */
     .login-gate {
       position: fixed; inset: 0; z-index: 9999;
