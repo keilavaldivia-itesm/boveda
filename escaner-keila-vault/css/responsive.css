@@ -1,31 +1,168 @@
 /**
- * RESPONSIVE.CSS — Adaptaciones móvil
- * Identidad Tec de Monterrey
+ * RESPONSIVE.CSS — Diseño móvil completo
+ * Breakpoints: mobile <640px, tablet 640-1024px, desktop >1024px
  */
-@media (max-width: 768px) {
-  .app-header { padding: 0 12px; gap: 8px; }
-  .app-nav { max-width: 100%; }
-  .nav-tab { padding: 5px 8px; font-size: .72rem; }
-  .tec-logo-header { height: 24px; }
 
-  .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
-  .dash-grid { grid-template-columns: 1fr !important; }
+/* ══ MOBILE FIRST ═══════════════════════════════════════════════════ */
+@media (max-width: 640px) {
 
-  .vault-panel { width: 100%; min-width: unset; }
-  .main-with-panel { flex-direction: column; }
+  /* Header compacto */
+  .app-header {
+    padding: 0 10px;
+    height: 52px;
+    gap: 6px;
+  }
+  .app-header img.tec-logo-header { display: none; }
+  .app-header h1 { font-size: .78rem !important; }
+  .badge-vault { font-size: .62rem; padding: 1px 5px; }
 
-  .mapview-container { grid-template-columns: 1fr !important; }
-  .users-container .users-header { flex-direction: column; align-items: flex-start; }
+  /* Nav: scroll horizontal en móvil */
+  .header-nav.app-nav {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 1px;
+    padding: 2px;
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+  .header-nav.app-nav::-webkit-scrollbar { display: none; }
+  .nav-tab {
+    padding: 5px 9px;
+    font-size: .7rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+    flex: 0 0 auto;
+  }
 
-  .login-card { padding: 32px 24px; }
+  /* User badge compacto */
+  .user-badge { padding: 4px 8px; gap: 5px; }
+  .user-badge #user-name { display: none; }
+  .user-badge .role-badge { display: none; }
+  .user-badge .btn-sm { padding: 3px 7px; font-size: .72rem; }
+
+  /* Sync status oculto en móvil */
+  #sync-status { display: none !important; }
+
+  /* ── DASHBOARD ── */
+  .dashboard { padding: 12px; }
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .kpi-card { padding: 12px; border-radius: 10px; }
+  .kpi-value { font-size: 1.6rem !important; }
+  .kpi-label { font-size: .65rem !important; }
+  .kpi-icon  { font-size: 1.2rem !important; }
+
+  .dash-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+  .dash-card { padding: 14px; }
+  .bar-label { width: 80px; font-size: .7rem; }
+
+  /* Botones rápidos */
+  .dashboard > div:last-child {
+    flex-direction: column;
+  }
+  .dashboard > div:last-child button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* ── SPREADSHEET ── */
+  .spreadsheet-view { height: calc(100vh - 52px); }
+  .sheet-toolbar {
+    padding: 8px 10px;
+    gap: 6px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  .sheet-toolbar input[type=text] {
+    width: 140px;
+    min-width: 100px;
+    padding: 6px 8px;
+    font-size: .78rem;
+  }
+  .sheet-toolbar select { padding: 6px 6px; font-size: .75rem; }
+  .sheet-count { display: none; }
+
+  /* Tabla scroll horizontal */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.records-table { min-width: 700px; font-size: .75rem; }
+  table.records-table th { padding: 8px 8px; font-size: .65rem; }
+  table.records-table td { padding: 7px 8px; }
+
+  /* ── SCANNER + PANEL ── */
+  .main-with-panel {
+    flex-direction: column;
+    height: calc(100vh - 52px);
+    overflow-y: auto;
+  }
+  .vault-panel {
+    width: 100% !important;
+    min-width: unset !important;
+    max-height: 45vh;
+    border-right: none;
+    border-bottom: 2px solid var(--tec-blue);
+  }
+  .scanner-section { padding: 12px; }
+  .camera-container { padding: 12px; }
+
+  .record-detail { padding: 12px; }
+  .detail-grid { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .detail-actions { gap: 4px; }
+  .detail-actions button { padding: 5px 8px; font-size: .72rem; }
+
+  /* ── MAPA ── */
+  .mapview-container {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto;
+    height: auto;
+    min-height: calc(100vh - 52px);
+    overflow-y: auto;
+  }
+  .tree-panel { max-height: 280px; }
+  .vault-map-panel { min-height: 300px; }
+  .info-panel { border-top: 1px solid var(--border); }
+  .vault-map-scroll { overflow-x: auto; }
+
+  /* ── USUARIOS ── */
+  .users-container { height: auto; min-height: calc(100vh - 52px); }
+  .users-header { padding: 12px; flex-direction: column; gap: 10px; }
+  .users-header > div:last-child { width: 100%; }
+  .users-header > div:last-child button { flex: 1; justify-content: center; }
+  .users-filters { padding: 10px; flex-direction: column; }
+  .roles-info { flex-direction: column; padding: 10px; }
+  .role-info-card { min-width: unset; }
+
+  /* ── LOGIN ── */
+  .login-card { padding: 28px 20px; margin: 10px; }
   .login-title { font-size: 1.1rem; }
 
-  .detail-grid { grid-template-columns: 1fr !important; }
+  /* ── MODALES ── */
+  .modal { padding: 10px; align-items: flex-end; }
+  .modal-content {
+    border-radius: 16px 16px 0 0 !important;
+    max-width: 100% !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .form-row { grid-template-columns: 1fr !important; }
+
+  /* ── ZONE OCCUPANCY ── */
+  .zone-name { font-size: .75rem; }
 }
 
-@media (max-width: 480px) {
-  .nav-tab { font-size: .68rem; padding: 4px 6px; }
-  .kpi-value { font-size: 1.6rem; }
-  .sheet-toolbar { gap: 6px; }
-  .sheet-toolbar input[type=text] { width: 140px; }
+/* ══ TABLET ══════════════════════════════════════════════════════════ */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .kpi-grid { grid-template-columns: repeat(4, 1fr) !important; }
+  .dash-grid { grid-template-columns: 1fr 1fr !important; }
+  .mapview-container { grid-template-columns: 240px 1fr 220px !important; }
+  .vault-panel { width: 280px; min-width: 280px; }
+  .nav-tab { font-size: .75rem; padding: 6px 10px; }
 }
