@@ -81,29 +81,27 @@
     /* ══ LOGIN GATE ═══════════════════════════════════════════════════ */
     .login-gate {
       position: fixed; inset: 0; z-index: 9999;
-      background: linear-gradient(135deg, #1e3a5f 0%, #0f2340 50%, #1a1a2e 100%);
+      background: linear-gradient(160deg, #0033A0 0%, #001f6b 60%, #000d3a 100%);
       display: flex; align-items: center; justify-content: center;
       padding: 20px;
     }
     .login-gate.hidden { display: none; }
 
     .login-card {
-      background: rgba(255,255,255,0.97);
+      background: rgba(255,255,255,0.98);
       border-radius: 20px;
-      padding: 44px 40px;
+      border-top: 5px solid #0033A0;
+      padding: 40px 40px;
       width: 100%; max-width: 400px;
       display: flex; flex-direction: column; align-items: center; gap: 18px;
       box-shadow: 0 25px 60px rgba(0,0,0,.4);
     }
 
-    .login-logo {
-      font-size: 3rem; line-height: 1;
-      background: linear-gradient(135deg, #1e3a5f, #2563eb);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
+    .login-logo { line-height: 1; }
+    .login-logo img { height: 56px; width: auto; }
     .login-title {
-      font-size: 1.5rem; font-weight: 800; color: #1e3a5f;
-      margin: 0; text-align: center;
+      font-size: 1.3rem; font-weight: 800; color: #0033A0;
+      margin: 0; text-align: center; letter-spacing: -.01em;
     }
     .login-subtitle {
       font-size: .82rem; color: #64748b; text-align: center;
@@ -122,12 +120,12 @@
     .login-form input:focus { outline: none; border-color: #2563eb; }
 
     .btn-demo {
-      width: 100%; padding: 10px; background: #f8fafc;
-      border: 1.5px solid #e2e8f0; border-radius: 8px;
-      font-size: .85rem; font-weight: 600; color: #475569;
+      width: 100%; padding: 10px; background: #f4f6fb;
+      border: 1.5px solid #dde3f0; border-radius: 8px;
+      font-size: .85rem; font-weight: 600; color: #5a6a8a;
       cursor: pointer; transition: all .2s;
     }
-    .btn-demo:hover { background: #f1f5f9; border-color: #2563eb; color: #2563eb; }
+    .btn-demo:hover { background: #e8eef9; border-color: #0033A0; color: #0033A0; }
 
     .login-divider {
       width: 100%; text-align: center; border-top: 1px solid #e2e8f0;
@@ -460,8 +458,13 @@
   <!-- ══ LOGIN GATE — cubre toda la app hasta autenticar ══════════════ -->
   <div id="login-gate" class="login-gate">
     <div class="login-card">
-      <div class="login-logo">🗄️</div>
-      <h1 class="login-title">Bóveda ITESM Campus Chihuahua-Keila</h1>
+      <div class="login-logo">
+        <img src="https://javier.rodriguez.org.mx/itesm/2014/tecnologico-de-monterrey-blue.png"
+             alt="Tecnológico de Monterrey"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <span style="display:none;font-size:2.5rem">🎓</span>
+      </div>
+      <h1 class="login-title">Bóveda ITESM<br><span style="font-size:1rem;font-weight:600;color:#5a6a8a">Campus Chihuahua · Keila</span></h1>
       <p class="login-subtitle">Sistema de Gestión de Expedientes<br>Tecnológico de Monterrey</p>
 
       <!-- Google Sign-In -->
@@ -502,7 +505,14 @@
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
-        <h1 style="font-size:1rem;white-space:nowrap">🗄️ Bóveda <span class="badge-vault">ITESM Chihuahua</span></h1>
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="https://javier.rodriguez.org.mx/itesm/2014/simbolo-tec-white.png"
+               alt="Tec" style="height:30px;width:auto"
+               onerror="this.style.display='none'">
+          <h1 style="font-size:.92rem;white-space:nowrap;color:#fff;font-weight:700">
+            Bóveda <span class="badge-vault">ITESM Chihuahua</span>
+          </h1>
+        </div>
       </div>
       <nav class="header-nav app-nav">
         <button class="nav-tab active" onclick="Views.show('dashboard')">📊 Dashboard</button>
